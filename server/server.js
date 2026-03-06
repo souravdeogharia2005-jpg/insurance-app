@@ -25,7 +25,8 @@ const transporter = nodemailer.createTransport({
     tls: {
         // Do not fail on invalid certificates
         rejectUnauthorized: false
-    }
+    },
+    family: 4 // Force IPv4
 });
 
 // --- Middleware ---
