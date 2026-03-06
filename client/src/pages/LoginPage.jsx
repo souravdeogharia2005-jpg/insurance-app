@@ -21,12 +21,14 @@ export default function LoginPage() {
         try {
             if (isLogin) {
                 await login(form.email, form.password);
-                navigate('/dashboard');
+                setSuccessMsg('Successfully signed in!');
+                setTimeout(() => navigate('/dashboard'), 1000);
             } else {
                 if (form.password !== form.confirmPassword) { setError('Passwords do not match'); setLoading(false); return; }
                 if (form.password.length < 6) { setError('Password must be at least 6 characters'); setLoading(false); return; }
                 await register(form.name, form.email, form.password);
-                navigate('/dashboard');
+                setSuccessMsg('Successfully registered and signed in!');
+                setTimeout(() => navigate('/dashboard'), 1000);
             }
         } catch (err) { setError(err.message); }
         setLoading(false);
