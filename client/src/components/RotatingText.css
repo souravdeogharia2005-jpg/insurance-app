@@ -1,0 +1,4 @@
+.rotating-text {
+    display: inline-block;
+    will-change: transform, opacity;
+}
