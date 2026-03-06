@@ -16,14 +16,16 @@ const JWT_SECRET = process.env.JWT_SECRET || 'aegisai-default-secret';
 // --- Nodemailer Transporter ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false, // Use STARTTLS
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // Force IPv4 if needed (handled by host resolution usually, but can be problematic on Render)
-    connectionTimeout: 10000, // 10 seconds
+    tls: {
+        // Do not fail on invalid certificates
+        rejectUnauthorized: false
+    }
 });
 
 // --- Middleware ---
@@ -245,28 +247,39 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
         // Generate a random 8 character password
         const tempPassword = Math.random().toString(36).slice(-8);
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-        // Update user
-        await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
-
+        // --- EMAIL SENDING PHASE ---
         const mailOptions = {
-            from: process.env.EMAIL_USER,
+            from: `"AegisAI Support" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: "AegisAI - Your Password Has Been Reset",
             text: `Hello! Your new temporary password is: ${tempPassword}\nPlease login and change it immediately.`,
-            html: `<h3>AegisAI Password Reset</h3><p>Hello! Your new temporary password is: <b>${tempPassword}</b></p><p>Please login and change it immediately.</p>`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                    <h2 style="color: #2563eb;">Password Reset Success</h2>
+                    <p>Hello! We have reset your password as requested.</p>
+                    <p>Your new temporary password is: <b style="font-size: 1.2em; color: #2563eb;">${tempPassword}</b></p>
+                    <p>Please login to your account and change this password immediately for security.</p>
+                    <br/>
+                    <p>Best regards,<br/>The AegisAI Team</p>
+                </div>
+            `,
         };
 
         try {
             await transporter.sendMail(mailOptions);
-            res.json({ message: `Password reset instructions sent to ${email}` });
+
+            // ONLY update DB if email was actually sent
+            const passwordHash = await bcrypt.hash(tempPassword, 10);
+            await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
+
+            res.json({ message: `Success! New password sent to ${email}` });
         } catch (emailErr) {
-            console.error('Email send failed:', emailErr);
-            res.status(500).json({ error: 'Failed to send email. Ensure App Password is set.' });
+            console.error('SMTP Connection/Auth Error:', emailErr);
+            res.status(500).json({ error: 'Mail server unreachable. Please try again in a few minutes or contact support.' });
         }
     } catch (error) {
-        console.error('Forgot password error:', error.message);
+        console.error('Forgot password internal error:', error.message);
         res.status(500).json({ error: 'Failed to process request' });
     }
 });
