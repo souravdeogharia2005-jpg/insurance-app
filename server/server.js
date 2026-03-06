@@ -130,11 +130,13 @@ app.post('/api/auth/register', async (req, res) => {
                     </div>
                 `
             };
-            await transporter.sendMail(mailOptions);
-            console.log(`Welcome email sent to ${email}`);
-        } catch (emailError) {
-            // Log but don't fail the registration
-            console.error('Failed to send welcome email:', emailError.message);
+            transporter.sendMail(mailOptions).then(() => {
+                console.log(`Welcome email sent to ${email}`);
+            }).catch(emailError => {
+                console.error('Failed to send welcome email:', emailError.message);
+            });
+        } catch (error) {
+            console.error('Error preparing welcome email:', error.message);
         }
 
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
