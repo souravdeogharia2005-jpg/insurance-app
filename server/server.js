@@ -92,7 +92,7 @@ app.post('/api/auth/register', async (req, res) => {
         if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
         // Check if email already exists
-        const [existing] = await pool.query('SELECT id FROM email = ?', [email]);
+        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existing.length > 0) return res.status(409).json({ error: 'Email already registered' });
 
         // Hash password and create user
