@@ -117,5 +117,16 @@ export async function deleteAdminProposal(id) {
     return res.json();
 }
 
+export async function forgotPassword(email) {
+    const res = await fetch(API + '/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
+    return data;
+}
+
 export function logout() { removeToken(); }
 export { getToken };

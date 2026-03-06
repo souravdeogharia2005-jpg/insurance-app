@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { API } from '../utils/api';
+import { API, forgotPassword } from '../utils/api';
 import { languages } from '../i18n/translations';
 import SplitText from '../components/SplitText';
 
@@ -35,6 +35,8 @@ export default function LoginPage() {
         setLoading(false);
     };
 
+
+
     const handleForgotPass = async (e) => {
         e.preventDefault();
         setSuccessMsg('');
@@ -44,15 +46,8 @@ export default function LoginPage() {
             setError('');
             setLoading(true);
             try {
-                const res = await fetch(`${API}/auth/forgot-password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: form.email })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
+                const data = await forgotPassword(form.email);
                 setSuccessMsg(data.message);
-                // In a real app we'd hide the form or show instructions, here we just show the message
             } catch (err) {
                 setError(err.message);
             }

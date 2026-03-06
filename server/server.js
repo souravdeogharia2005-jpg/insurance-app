@@ -15,11 +15,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'aegisai-default-secret';
 
 // --- Nodemailer Transporter ---
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
-    }
+    },
+    // Force IPv4 if needed (handled by host resolution usually, but can be problematic on Render)
+    connectionTimeout: 10000, // 10 seconds
 });
 
 // --- Middleware ---
@@ -422,12 +426,9 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-// --- Serve React build (production) ---
-app.use(express.static(path.join(__dirname, '..', 'client', 'dist')));
-app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, '..', 'client', 'dist', 'index.html'));
-    }
+// Root route for Render health check
+app.get('/', (req, res) => {
+    res.json({ message: 'AegisAI API is running' });
 });
 
 // --- Start Server ---
