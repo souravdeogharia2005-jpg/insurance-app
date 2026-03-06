@@ -13,6 +13,15 @@ const app = express();
 const PORT = process.env.SERVER_PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'aegisai-default-secret';
 
+// --- Nodemailer Transporter ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
 // --- Middleware ---
 app.use(cors());
 app.use(express.json());
