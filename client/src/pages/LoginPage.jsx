@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import { API } from '../utils/api';
 import { languages } from '../i18n/translations';
 import SplitText from '../components/SplitText';
 
@@ -43,7 +44,6 @@ export default function LoginPage() {
             setError('');
             setLoading(true);
             try {
-                const API = import.meta.env.VITE_API_URL || '/api';
                 const res = await fetch(`${API}/auth/forgot-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

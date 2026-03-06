@@ -10,7 +10,7 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.SERVER_PORT || 3000;
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'aegisai-default-secret';
 
 // --- Nodemailer Transporter ---
@@ -23,7 +23,10 @@ const transporter = nodemailer.createTransport({
 });
 
 // --- Middleware ---
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'https://insurance-app-ruby.vercel.app', 'https://insurance-4uqjgp3ji-souravdeogharia2005-jpgs-projects.vercel.app'],
+    credentials: true
+}));
 app.use(express.json());
 
 // --- MySQL Connection Pool ---
@@ -243,52 +246,17 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         // Update user
         await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
-        // Send email (Using ethereal for dev, configured for requested gmail)
-        // Note to user: To use Gmail, replace 'YOUR_APP_PASSWORD' with a real Google App Password.
-        let transporter = nodemailer.createTransport({
-            host: "smtp.gmail.com",
-            port: 587,
-            secure: false, // true for 465, false for other ports
-            auth: {
-                user: 'porschegt651@gmail.com', // User requested email
-                pass: process.env.EMAIL_PASS || 'YOUR_GMAIL_APP_PASSWORD' // App password needed
-            }
-        });
-
-        // For testing without a real password, we'll try to use a test account fallback if it fails
         const mailOptions = {
-            from: '"AegisAI Support" <porschegt651@gmail.com>',
-            to: email, // Can also force this to be porschegt651@gmail.com if testing
+            from: process.env.EMAIL_USER,
+            to: email,
             subject: "AegisAI - Your Password Has Been Reset",
             text: `Hello! Your new temporary password is: ${tempPassword}\nPlease login and change it immediately.`,
             html: `<h3>AegisAI Password Reset</h3><p>Hello! Your new temporary password is: <b>${tempPassword}</b></p><p>Please login and change it immediately.</p>`,
         };
 
         try {
-            if (process.env.EMAIL_PASS) {
-                await transporter.sendMail(mailOptions);
-                res.json({ message: `Password reset instructions sent to ${email}` });
-            } else {
-                // Fallback to ethereal for testing without credentials
-                let testAccount = await nodemailer.createTestAccount();
-                let devTransporter = nodemailer.createTransport({
-                    host: "smtp.ethereal.email",
-                    port: 587,
-                    secure: false,
-                    auth: { user: testAccount.user, pass: testAccount.pass }
-                });
-                let info = await devTransporter.sendMail({
-                    from: '"AegisAI Support" <support@aegisai.com>',
-                    to: email,
-                    subject: "AegisAI - Your Password Has Been Reset",
-                    text: `Hello! Your new temporary password is: ${tempPassword}\nPlease login and change it immediately.`,
-                });
-                console.log("Password Reset Test Email URL: %s", nodemailer.getTestMessageUrl(info));
-                res.json({
-                    message: `Password reset sent.`,
-                    _devNote: `Check server console for Ethereal email link. Temp Pass is: ${tempPassword}`
-                });
-            }
+            await transporter.sendMail(mailOptions);
+            res.json({ message: `Password reset instructions sent to ${email}` });
         } catch (emailErr) {
             console.error('Email send failed:', emailErr);
             res.status(500).json({ error: 'Failed to send email. Ensure App Password is set.' });
