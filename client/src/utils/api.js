@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || '/api';
+export const API = import.meta.env.VITE_API_URL || '/api';
 
 function getToken() { return localStorage.getItem('aegis-token'); }
 function setToken(t) { localStorage.setItem('aegis-token', t); }
