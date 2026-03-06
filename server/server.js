@@ -92,7 +92,7 @@ app.post('/api/auth/register', async (req, res) => {
         if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
         // Check if email already exists
-        const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+        const [existing] = await pool.query('SELECT id FROM email = ?', [email]);
         if (existing.length > 0) return res.status(409).json({ error: 'Email already registered' });
 
         // Hash password and create user
@@ -100,6 +100,34 @@ app.post('/api/auth/register', async (req, res) => {
         const [result] = await pool.query('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)', [name, email, passwordHash]);
 
         const token = jwt.sign({ id: result.insertId, name, email, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
+
+        // Send Welcome Email
+        try {
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Welcome to AegisAI Insurance!',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                        <h2 style="color: #2563eb;">Welcome to AegisAI, ${name}!</h2>
+                        <p>Thank you for choosing us for your insurance needs. Your registration has been successfully completed.</p>
+                        <p>With AegisAI, you now have access to our AI-driven risk assessment and customized insurance proposals designed specifically for you and your family.</p>
+                        <br/>
+                        <p>To get started, simply log in to your dashboard and create your first proposal.</p>
+                        <p>If you have any questions, feel free to reply to this email.</p>
+                        <br/>
+                        <p>Best regards,</p>
+                        <p><strong>The AegisAI Team</strong></p>
+                    </div>
+                `
+            };
+            await transporter.sendMail(mailOptions);
+            console.log(`Welcome email sent to ${email}`);
+        } catch (emailError) {
+            // Log but don't fail the registration
+            console.error('Failed to send welcome email:', emailError.message);
+        }
+
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
     } catch (error) {
         console.error('Register error:', error.message);
