@@ -108,7 +108,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         // Send Welcome Email
         try {
-            await resend.emails.send({
+            const { error: resendError } = await resend.emails.send({
                 from: 'AegisAI <onboarding@resend.dev>',
                 to: email,
                 subject: 'Welcome to AegisAI Insurance!',
@@ -126,9 +126,13 @@ app.post('/api/auth/register', async (req, res) => {
                     </div>
                 `
             });
-            console.log(`Welcome email sent via Resend to ${email}`);
+            if (resendError) {
+                console.error('Resend Welcome Email API Error:', resendError.message);
+            } else {
+                console.log(`Welcome email sent via Resend to ${email}`);
+            }
         } catch (error) {
-            console.error('Resend Welcome Email Error:', error.message);
+            console.error('Resend Welcome Email SDK Error:', error.message);
         }
 
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
@@ -232,7 +236,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         const tempPassword = Math.random().toString(36).slice(-8);
 
         try {
-            await resend.emails.send({
+            const { data, error: resendError } = await resend.emails.send({
                 from: 'AegisAI Support <onboarding@resend.dev>',
                 to: email,
                 subject: "AegisAI - Your Password Has Been Reset",
@@ -249,14 +253,21 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                 `,
             });
 
+            if (resendError) {
+                console.error('Resend API Response Error:', resendError);
+                return res.status(500).json({
+                    error: `Email delivery failed: ${resendError.message}. NOTE: In Resend Free Tier, you can only send to your account email (souravdeogharia2005@gmail.com).`
+                });
+            }
+
             // ONLY update DB if email was actually sent
             const passwordHash = await bcrypt.hash(tempPassword, 10);
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
             res.json({ message: `Success! New password sent to ${email}` });
         } catch (emailErr) {
-            console.error('Resend API Error:', emailErr.message);
-            res.status(500).json({ error: 'Email delivery failed via API. Please check if your Resend API key is valid.' });
+            console.error('Resend SDK Error:', emailErr.message);
+            res.status(500).json({ error: 'Failed to communicate with the email service provider.' });
         }
     } catch (error) {
         console.error('Forgot password internal error:', error.message);
