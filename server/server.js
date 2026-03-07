@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_EMAIL = 'porschegt651@gmail.com'; // Verified sender in Brevo
+const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com';
 
 const app = express();
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
@@ -254,7 +254,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         const tempPassword = Math.random().toString(36).slice(-8);
 
         try {
-            console.log(`📧 Attempting to send password reset email to ${email}...`);
+            console.log(`📧 Preparing to send password reset for: ${email}`);
             const resetEmailBody = {
                 sender: { name: 'AegisAI Support', email: SENDER_EMAIL },
                 to: [{ email: email }],
