@@ -19,13 +19,25 @@ const SplitText = ({ text, className = '', delay = 50, duration = 0.8, ease = 'p
     }, [isVisible]);
 
     const Tag = tag || 'p';
-    const chars = text.split('').map((char, i) => (
-        <span key={i} className="split-char" style={{ display: 'inline-block', opacity: 0, willChange: 'transform, opacity' }}>
-            {char === ' ' ? '\u00A0' : char}
+
+    // Split by words first, then by characters within each word
+    const words = text.split(' ').map((word, wordIndex) => (
+        <span key={wordIndex} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+            {word.split('').map((char, charIndex) => (
+                <span key={charIndex} className="split-char" style={{ display: 'inline-block', opacity: 0, shadow: 'none', willChange: 'transform, opacity' }}>
+                    {char}
+                </span>
+            ))}
+            {/* Add a space character after each word except the last one */}
+            {wordIndex < text.split(' ').length - 1 && (
+                <span className="split-char" style={{ display: 'inline-block', opacity: 0 }}>
+                    &nbsp;
+                </span>
+            )}
         </span>
     ));
 
-    return <Tag ref={containerRef} className={`split-parent ${className}`} style={{ textAlign, overflow: 'hidden', display: 'inline-block', whiteSpace: 'normal', wordWrap: 'break-word' }}>{chars}</Tag>;
+    return <Tag ref={containerRef} className={`split-parent ${className}`} style={{ textAlign, overflow: 'hidden', display: 'block', whiteSpace: 'normal' }}>{words}</Tag>;
 };
 
 export default SplitText;

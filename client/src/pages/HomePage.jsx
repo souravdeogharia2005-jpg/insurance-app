@@ -24,8 +24,8 @@ export default function HomePage() {
                         </div>
 
                         <div className="space-y-4">
-                            <SplitText text={t('findBestInsurance')} className="text-4xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl text-deep dark:text-white" tag="h1" delay={30} duration={0.6} from={{ opacity: 0, y: 40 }} to={{ opacity: 1, y: 0 }} />
-                            <h2 className="text-4xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl">
+                            <SplitText text={t('findBestInsurance')} className="text-3xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl text-deep dark:text-white" tag="h1" delay={30} duration={0.6} from={{ opacity: 0, y: 40 }} to={{ opacity: 1, y: 0 }} />
+                            <h2 className="text-3xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl">
                                 <span className="text-primary">{t('policyWith')}</span>
                                 <RotatingText words={['AI', 'Trust', 'AegisAI', 'Innovation']} interval={2500} className="text-secondary underline decoration-secondary/30" />
                             </h2>
