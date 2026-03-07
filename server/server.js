@@ -171,8 +171,12 @@ app.post('/api/auth/login', async (req, res) => {
 
         const user = users[0];
         const valid = await bcrypt.compare(password, user.password_hash);
-        if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+        if (!valid) {
+            console.log(`❌ Login failed for ${email}: Incorrect password`);
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
 
+        console.log(`✅ Login successful for ${email}`);
         const token = jwt.sign({ id: user.id, name: user.name, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     } catch (error) {
@@ -298,13 +302,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             }
 
             const successData = await brevoRes.json();
-            console.log(`✅ Success! Password reset email accepted by Brevo. ID: ${successData.messageId}`);
+            console.log(`✅ Success! Password reset accepted by Brevo. ID: ${successData.messageId}`);
+            console.log(`🔑 DEBUG: Temp password for ${email} is "${tempPassword}"`);
 
             // ONLY update DB if email was actually sent
             const passwordHash = await bcrypt.hash(tempPassword, 10);
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
-            res.json({ message: `Success! New password sent to ${email}. Please check your inbox and SPAM folder.` });
+            res.json({ message: `Success! New password sent to ${email}. Check your inbox/spam.` });
         } catch (emailErr) {
             console.error('💥 Brevo/Network Error during reset:', emailErr.message);
             res.status(500).json({ error: 'Failed to communicate with the email service provider.' });
@@ -312,6 +317,21 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     } catch (error) {
         console.error('Forgot password internal error:', error.message);
         res.status(500).json({ error: 'Failed to process request' });
+    }
+});
+
+// --- Emergency Recovery Route (Temporary) ---
+app.post('/api/auth/emergency-reset', async (req, res) => {
+    const { email, secret } = req.body;
+    if (secret !== 'aegis-debug-2026') return res.status(403).json({ error: 'Unauthorized' });
+
+    try {
+        const passwordHash = await bcrypt.hash('aegis123', 10);
+        await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
+        console.log(`🚨 EMERGENCY RESET triggered for ${email}. Password is now "aegis123"`);
+        res.json({ message: 'Emergency reset successful. Password is now "aegis123"' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
