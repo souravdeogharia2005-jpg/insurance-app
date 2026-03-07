@@ -108,35 +108,49 @@ app.post('/api/auth/register', async (req, res) => {
 
         // Send Welcome Email
         try {
-            await fetch(BREVO_API_URL, {
+            const welcomeEmailBody = {
+                sender: { name: 'AegisAI Insurance', email: SENDER_EMAIL },
+                to: [{ email: email, name: name }],
+                subject: 'Welcome to AegisAI Insurance!',
+                textContent: `Hello ${name}! Welcome to AegisAI. Your registration is complete. Log in to your dashboard to get started.`,
+                htmlContent: `
+                    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6;">
+                        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AegisAI, ${name}!</h1>
+                        </div>
+                        <div style="padding: 30px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+                            <p style="font-size: 16px;">Thank you for choosing us for your insurance needs. Your registration has been successfully completed.</p>
+                            <p style="font-size: 16px;">With AegisAI, you now have access to our AI-driven risk assessment and customized insurance proposals.</p>
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Login to Dashboard</a>
+                            </div>
+                            <p style="font-size: 14px; color: #6b7280;">If you have any questions, feel free to reply to this email.</p>
+                            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                            <p style="font-size: 14px; margin: 0;">Best regards,</p>
+                            <p style="font-size: 16px; font-weight: bold; margin: 0; color: #2563eb;">The AegisAI Team</p>
+                        </div>
+                    </div>
+                `
+            };
+
+            const welcomeRes = await fetch(BREVO_API_URL, {
                 method: 'POST',
                 headers: {
                     'accept': 'application/json',
                     'api-key': process.env.BREVO_API_KEY,
                     'content-type': 'application/json'
                 },
-                body: JSON.stringify({
-                    sender: { name: 'AegisAI', email: SENDER_EMAIL },
-                    to: [{ email: email, name: name }],
-                    subject: 'Welcome to AegisAI Insurance!',
-                    htmlContent: `
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                            <h2 style="color: #2563eb;">Welcome to AegisAI, ${name}!</h2>
-                            <p>Thank you for choosing us for your insurance needs. Your registration has been successfully completed.</p>
-                            <p>With AegisAI, you now have access to our AI-driven risk assessment and customized insurance proposals designed specifically for you and your family.</p>
-                            <br/>
-                            <p>To get started, simply log in to your dashboard and create your first proposal.</p>
-                            <p>If you have any questions, feel free to reply to this email.</p>
-                            <br/>
-                            <p>Best regards,</p>
-                            <p><strong>The AegisAI Team</strong></p>
-                        </div>
-                    `
-                })
+                body: JSON.stringify(welcomeEmailBody)
             });
-            console.log(`Welcome email sent via Brevo to ${email}`);
+
+            if (welcomeRes.ok) {
+                console.log(`✅ Welcome email successfully sent to ${email} via Brevo`);
+            } else {
+                const errData = await welcomeRes.json();
+                console.error('❌ Brevo Welcome Email API Error:', JSON.stringify(errData));
+            }
         } catch (error) {
-            console.error('Brevo Welcome Email Error:', error.message);
+            console.error('💥 Brevo Welcome Email Network Error:', error.message);
         }
 
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
@@ -240,6 +254,33 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         const tempPassword = Math.random().toString(36).slice(-8);
 
         try {
+            console.log(`📧 Attempting to send password reset email to ${email}...`);
+            const resetEmailBody = {
+                sender: { name: 'AegisAI Support', email: SENDER_EMAIL },
+                to: [{ email: email }],
+                subject: "AegisAI - Your Password Has Been Reset",
+                textContent: `Hello! Your new temporary password for AegisAI is: ${tempPassword}. Please login and change it immediately for safety.`,
+                htmlContent: `
+                    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 20px auto; color: #1f2937; line-height: 1.6; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #2563eb; padding: 25px; text-align: center;">
+                            <h2 style="color: white; margin: 0; font-size: 20px;">Password Reset Successful</h2>
+                        </div>
+                        <div style="padding: 30px; background: #ffffff;">
+                            <p>Hello!</p>
+                            <p>We have reset your password as requested. Please use the temporary password below to access your account:</p>
+                            <div style="background: #f3f4f6; padding: 15px; text-align: center; border-radius: 8px; margin: 25px 0;">
+                                <span style="font-family: monospace; font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #2563eb;">${tempPassword}</span>
+                            </div>
+                            <p style="color: #ef4444; font-weight: bold;">Important: Log in and change this password immediately in your profile settings for security.</p>
+                            <div style="text-align: center; margin-top: 30px;">
+                                <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Go to Login Page</a>
+                            </div>
+                            <p style="font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb; margin-top: 30px; padding-top: 20px;">Best regards,<br/>The AegisAI Support Team</p>
+                        </div>
+                    </div>
+                `,
+            };
+
             const brevoRes = await fetch(BREVO_API_URL, {
                 method: 'POST',
                 headers: {
@@ -247,36 +288,25 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                     'api-key': process.env.BREVO_API_KEY,
                     'content-type': 'application/json'
                 },
-                body: JSON.stringify({
-                    sender: { name: 'AegisAI Support', email: SENDER_EMAIL },
-                    to: [{ email: email }],
-                    subject: "AegisAI - Your Password Has Been Reset",
-                    htmlContent: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                            <h2 style="color: #2563eb;">Password Reset Success</h2>
-                            <p>Hello! We have reset your password as requested.</p>
-                            <p>Your new temporary password is: <b style="font-size: 1.2em; color: #2563eb;">${tempPassword}</b></p>
-                            <p>Please login to your account and change this password immediately for security.</p>
-                            <br/>
-                            <p>Best regards,<br/>The AegisAI Team</p>
-                        </div>
-                    `,
-                })
+                body: JSON.stringify(resetEmailBody)
             });
 
             if (!brevoRes.ok) {
                 const errorData = await brevoRes.json();
-                console.error('Brevo API Response Error:', errorData);
-                return res.status(500).json({ error: 'Email delivery failed via Brevo. Please check your API configuration.' });
+                console.error('❌ Brevo API Response Error:', JSON.stringify(errorData));
+                return res.status(500).json({ error: `Broker Error: ${errorData.message || 'Check API configuration.'}` });
             }
+
+            const successData = await brevoRes.json();
+            console.log(`✅ Success! Password reset email accepted by Brevo. ID: ${successData.messageId}`);
 
             // ONLY update DB if email was actually sent
             const passwordHash = await bcrypt.hash(tempPassword, 10);
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
-            res.json({ message: `Success! New password sent to ${email}` });
+            res.json({ message: `Success! New password sent to ${email}. Please check your inbox and SPAM folder.` });
         } catch (emailErr) {
-            console.error('Brevo SDK/Network Error:', emailErr.message);
+            console.error('💥 Brevo/Network Error during reset:', emailErr.message);
             res.status(500).json({ error: 'Failed to communicate with the email service provider.' });
         }
     } catch (error) {
