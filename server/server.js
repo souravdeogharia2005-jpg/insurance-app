@@ -6,28 +6,14 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 require('dotenv').config();
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'aegisai-default-secret';
-
-// --- Nodemailer Transporter ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        // Do not fail on invalid certificates
-        rejectUnauthorized: false
-    },
-    family: 4 // Force IPv4
-});
 
 // --- Middleware ---
 app.use(cors({
@@ -122,8 +108,8 @@ app.post('/api/auth/register', async (req, res) => {
 
         // Send Welcome Email
         try {
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
+            await resend.emails.send({
+                from: 'AegisAI <onboarding@resend.dev>',
                 to: email,
                 subject: 'Welcome to AegisAI Insurance!',
                 html: `
@@ -139,14 +125,10 @@ app.post('/api/auth/register', async (req, res) => {
                         <p><strong>The AegisAI Team</strong></p>
                     </div>
                 `
-            };
-            transporter.sendMail(mailOptions).then(() => {
-                console.log(`Welcome email sent to ${email}`);
-            }).catch(emailError => {
-                console.error('Failed to send welcome email:', emailError.message);
             });
+            console.log(`Welcome email sent via Resend to ${email}`);
         } catch (error) {
-            console.error('Error preparing welcome email:', error.message);
+            console.error('Resend Welcome Email Error:', error.message);
         }
 
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
@@ -249,26 +231,23 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         // Generate a random 8 character password
         const tempPassword = Math.random().toString(36).slice(-8);
 
-        // --- EMAIL SENDING PHASE ---
-        const mailOptions = {
-            from: `"AegisAI Support" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: "AegisAI - Your Password Has Been Reset",
-            text: `Hello! Your new temporary password is: ${tempPassword}\nPlease login and change it immediately.`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                    <h2 style="color: #2563eb;">Password Reset Success</h2>
-                    <p>Hello! We have reset your password as requested.</p>
-                    <p>Your new temporary password is: <b style="font-size: 1.2em; color: #2563eb;">${tempPassword}</b></p>
-                    <p>Please login to your account and change this password immediately for security.</p>
-                    <br/>
-                    <p>Best regards,<br/>The AegisAI Team</p>
-                </div>
-            `,
-        };
-
         try {
-            await transporter.sendMail(mailOptions);
+            await resend.emails.send({
+                from: 'AegisAI Support <onboarding@resend.dev>',
+                to: email,
+                subject: "AegisAI - Your Password Has Been Reset",
+                text: `Hello! Your new temporary password is: ${tempPassword}\nPlease login and change it immediately.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #2563eb;">Password Reset Success</h2>
+                        <p>Hello! We have reset your password as requested.</p>
+                        <p>Your new temporary password is: <b style="font-size: 1.2em; color: #2563eb;">${tempPassword}</b></p>
+                        <p>Please login to your account and change this password immediately for security.</p>
+                        <br/>
+                        <p>Best regards,<br/>The AegisAI Team</p>
+                    </div>
+                `,
+            });
 
             // ONLY update DB if email was actually sent
             const passwordHash = await bcrypt.hash(tempPassword, 10);
@@ -276,8 +255,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
             res.json({ message: `Success! New password sent to ${email}` });
         } catch (emailErr) {
-            console.error('SMTP Connection/Auth Error:', emailErr);
-            res.status(500).json({ error: 'Mail server unreachable. Please try again in a few minutes or contact support.' });
+            console.error('Resend API Error:', emailErr.message);
+            res.status(500).json({ error: 'Email delivery failed via API. Please check if your Resend API key is valid.' });
         }
     } catch (error) {
         console.error('Forgot password internal error:', error.message);
