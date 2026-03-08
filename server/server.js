@@ -495,7 +495,23 @@ app.get('/api/health', async (req, res) => {
 
 // Root route for Render health check
 app.get('/', (req, res) => {
-    res.json({ message: 'AegisAI API is running' });
+    res.json({
+        message: 'AegisAI API is running',
+        version: SERVER_VERSION,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Diagnostic route
+app.get('/api/diag', (req, res) => {
+    res.json({
+        version: SERVER_VERSION,
+        env: {
+            DB_HOST: process.env.DB_HOST ? 'Present' : 'Missing',
+            BREVO_KEY: process.env.BREVO_API_KEY ? 'Present' : 'Missing',
+            SENDER: SENDER_EMAIL
+        }
+    });
 });
 
 // --- Start Server ---
@@ -505,7 +521,7 @@ async function startServer() {
         console.log('✅ Connected to MySQL database!');
         conn.release();
         app.listen(PORT, () => {
-            console.log(`\n🚀 AegisAI Server running at http://localhost:${PORT}`);
+            console.log(`\n🚀 AegisAI Server v${SERVER_VERSION} running at http://localhost:${PORT}`);
             console.log(`📡 API: http://localhost:${PORT}/api`);
             console.log(`🔐 Auth: /api/auth/register, /api/auth/login, /api/auth/me\n`);
         });
