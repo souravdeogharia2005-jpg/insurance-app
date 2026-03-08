@@ -169,10 +169,13 @@ app.post('/api/auth/login', async (req, res) => {
         const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) return res.status(401).json({ error: 'Invalid email or password' });
 
+        console.log(`🔑 Login Attempt: ${email}`);
         const user = users[0];
         const valid = await bcrypt.compare(password, user.password_hash);
+
         if (!valid) {
-            console.log(`❌ Login failed for ${email}: Incorrect password`);
+            console.log(`❌ HASH MISMATCH for ${email}. Input: "${password}"`);
+            // WARNING: DO NOT LOG PLAIN PASSWORDS IN PRODUCTION. THIS IS FOR EMERGENCY DEBUGGING ONLY.
             return res.status(401).json({ error: 'Invalid email or password' });
         }
 
@@ -254,8 +257,8 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) return res.status(404).json({ error: 'Account not found. Please register first.' });
 
-        // Generate a random 8 character password
-        const tempPassword = Math.random().toString(36).slice(-8);
+        // Generate a 6-digit numeric password for better readability (no l vs 1 or O vs 0 confusion)
+        const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
 
         try {
             console.log(`📧 Preparing to send password reset for: ${email}`);
