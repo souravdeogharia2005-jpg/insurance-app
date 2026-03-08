@@ -9,7 +9,8 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com';
+const SENDER_EMAIL = 'souravdeogharia2005@gmail.com'; // Hardcoded confirmed authorized sender
+const SERVER_VERSION = '2.1.0';
 
 const app = express();
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
