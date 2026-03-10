@@ -9,9 +9,9 @@ async function request(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // Increase timeout to 60 seconds for Render's cold start
+    // Increase timeout to 120 seconds for deep Render cold start (User preferred waiting over failure)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
         const res = await fetch(API + url, { 
@@ -38,7 +38,7 @@ async function request(url, options = {}) {
 
 export async function register(name, email, password) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     try {
         const res = await fetch(API + '/auth/register', { 
             method: 'POST', 
@@ -60,7 +60,7 @@ export async function register(name, email, password) {
 
 export async function login(email, password) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     try {
         const res = await fetch(API + '/auth/login', { 
             method: 'POST', 
@@ -176,7 +176,7 @@ export async function getAdminStats() {
 
 export async function forgotPassword(email) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     try {
         const res = await fetch(API + '/auth/forgot-password', {
             method: 'POST',

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
@@ -18,6 +18,11 @@ export default function LoginPage() {
     const [resetLoading, setResetLoading] = useState(false);
     const [isWarming, setIsWarming] = useState(false);
     const [showPass, setShowPass] = useState(false);
+
+    // Pre-warm the server on page mount
+    useEffect(() => {
+        fetch(API + '/health').catch(() => {}); // Silent ping to wake up Render
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault(); setError(''); setSuccessMsg(''); setLoading(true); setIsWarming(false);
