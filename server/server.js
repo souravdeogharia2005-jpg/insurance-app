@@ -8,6 +8,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+// Standard fetch support for all Node versions
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com'; // Use env or fallback
 const SERVER_VERSION = '4.0.0';

@@ -15,6 +15,7 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -44,14 +45,16 @@ export default function LoginPage() {
             setError('Please enter your email address first.');
         } else {
             setError('');
-            setLoading(true);
+            setResetLoading(true);
             try {
                 const data = await forgotPassword(form.email);
                 setSuccessMsg(data.message);
+                setError('');
             } catch (err) {
                 setError(err.message);
+            } finally {
+                setResetLoading(false);
             }
-            setLoading(false);
         }
     };
 
@@ -153,7 +156,17 @@ export default function LoginPage() {
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center">
                                         <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('password')}</label>
-                                        {isLogin && <button type="button" onClick={handleForgotPass} className="text-xs font-bold text-primary hover:underline">Forgot Password?</button>}
+                                        {isLogin && (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleForgotPass} 
+                                                disabled={resetLoading}
+                                                className="text-xs font-bold text-primary hover:underline disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                {resetLoading && <span className="w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin" />}
+                                                {resetLoading ? 'Resetting...' : 'Forgot Password?'}
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="relative">
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
