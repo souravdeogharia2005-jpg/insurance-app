@@ -1,8 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import SplitText from '../components/SplitText';
-import RotatingText from '../components/RotatingText';
 
 export default function HomePage() {
     const navigate = useNavigate();
@@ -10,184 +8,240 @@ export default function HomePage() {
     const { t } = useApp();
 
     return (
-        <div className="relative flex flex-col overflow-x-hidden bg-background-light dark:bg-background-dark transition-colors duration-300 pb-20 md:pb-0">
-            <main className="flex-1">
-                {/* Hero */}
-                <section className="relative overflow-hidden px-6 pt-12 pb-24 lg:pt-20 lg:pb-32 flex flex-col items-center text-center">
-                    <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-                    <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-secondary/10 rounded-full blur-3xl" />
-
-                    <div className="relative z-10 flex flex-col items-center gap-8 max-w-4xl mx-auto">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 dark:bg-primary/20 px-4 py-1.5 text-primary">
-                            <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">{t('nextGenInsurance')}</span>
-                        </div>
-
-                        <div className="space-y-4">
-                            <SplitText text={t('findBestInsurance')} className="text-3xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl text-deep dark:text-white" tag="h1" delay={30} duration={0.6} from={{ opacity: 0, y: 40 }} to={{ opacity: 1, y: 0 }} />
-                            <h2 className="text-3xl sm:text-5xl font-black leading-tight tracking-tight md:text-6xl lg:text-7xl">
-                                <span className="text-primary">{t('policyWith')}</span>
-                                <RotatingText words={['AI', 'Trust', 'AegisAI', 'Innovation']} interval={2500} className="text-secondary underline decoration-secondary/30" />
-                            </h2>
-                        </div>
-
-                        <p className="max-w-2xl text-lg sm:text-xl text-slate-600 dark:text-slate-400 mt-2 mb-4 leading-relaxed">
-                            {t('aegisDesc')}
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center sm:w-auto">
-                            <button onClick={() => navigate(user ? '/scan' : '/login')} className="flex items-center justify-center gap-2 bg-primary text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-xl shadow-primary/20 w-full sm:w-auto">
-                                <span className="material-symbols-outlined">document_scanner</span>
-                                {t('scanDoc')}
-                            </button>
-                            <button onClick={() => navigate(user ? '/proposal' : '/login')} className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm w-full sm:w-auto">
-                                <span className="material-symbols-outlined">edit_note</span>
-                                {t('fillForm')}
-                            </button>
-                        </div>
-
-                        <div className="mt-6 flex items-center justify-center gap-4 text-sm font-medium text-slate-500 dark:text-slate-400">
-                            <div className="flex -space-x-2">
-                                <img className="h-8 w-8 rounded-full border-2 border-white dark:border-deep shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe75rp62s722_9Hp8s36-oX9Lzb3XOcwDok4YOBOIxJ2r6MhZQCvgx4a9p-YSoQk9S73NgJob-F1u1ncu28Iueo7da_RV4YQ9-EEfGY2Jz_LmGX0b754fDvQ35CCPh-QiUYEquhYQ93MoK2VY3WnYIsJ0-PWUNRuiar1rrBEPs_xvjahdDcM2Le0UvihbTGboap4eLDPfjuarrkUKTQ5j3B80Hdj1zPIMDFmh_icXjUc13UR5RPA_Glye9RplpsrkFLuxPZpuINc1A" alt="" />
-                                <img className="h-8 w-8 rounded-full border-2 border-white dark:border-deep shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuZzVc7NtAEa_pcEVuO-97EfP6TPFbrTn3AvhWMp8YbJku_f8gRV-7EIMkDybP9X9nrVwdKZqPbgG7GgeKohIwSsZ_dGuf9q1_Ozw-UwLM5K-njjfLrXyCFFPjfmw1ZzZGhWunzVXwEAX4APoO3XtByerwxob3pV-YUJOaERoB4fKi56CWNjkJ5T9cx0yjYZFnEuDQw91PgEJ5y2sP-z3eaKGDFwzVj21NFiyZ0bCTOawEkRmkOIORik8JdCE8XR38N11U6jzhdrI" alt="" />
-                                <img className="h-8 w-8 rounded-full border-2 border-white dark:border-deep shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvQmVwcpnJNeZ-fMjMNgAYphH5aS9vN8O7TArlU-NL889nuC-wVVnhnMrFUZraGQkHfRuPTgGAq5AfCYzwmODCq-wmAxU70z9izE4hwcTu1r8gdfbRW1-wcpwZ8jWogo5QTIm2_MPpwKQQl3pxtMkujnTDjZF9zRRFo4sz5M1xFdoPKCx0x1V-46ejIv-p41JS1z3LFDRpUfioIxXOqnfQ3IKFq3a3bK33xCWY3f3LNdTLjRlsgtplodgXqZShhNvbGm845tLI8QQ" alt="" />
-                            </div>
-                            <p>{t('trustedBy')}</p>
-                        </div>
+        <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased overflow-x-hidden">
+            <main>
+                {/* Hero Section */}
+                <section className="relative pt-4 pb-20 lg:pt-8 lg:pb-32 overflow-hidden">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none overflow-hidden">
+                        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px]"></div>
+                        <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px]"></div>
                     </div>
-
-                    <div className="relative mt-16 lg:mt-24 w-full max-w-5xl mx-auto px-4 sm:px-6">
-                        <div className="absolute -inset-4 md:-inset-8 bg-gradient-to-tr from-primary/20 via-secondary/15 to-transparent blur-3xl opacity-50 dark:opacity-30" />
-                        <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-slate-900">
-                            <img className="w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRuwoDtw8igcuqOXn-qGUqr2EjYPolJUXKU03txvSQolTxiUtcZqjrNUhlCDIcxxuYsuKA8_Rypl_pQsVS53KIuPDzE0VKZPSWYGDLftnGPbAnCATMg1Z2ywUKHfCu3_GEpOG5q6Eg7BgVLB6LGwqktNhFiVOYjUMaUvVamVMvmt_1DVmFXzlD1OQnEvWSNUr-KcaBQ1YeS1SF-eASlWi4olb6Gfif0g2UAHcd1oZ7Y0JhFMPhdRe2oPFMXA96bez6VbN9bwnMHWM" alt="AI Dashboard" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-deep/50 via-deep/10 to-transparent pointer-events-none" />
-                            <div className="absolute bottom-4 left-4 right-4 sm:bottom-8 sm:left-8 sm:right-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pointer-events-none">
-                                <div className="bg-white/95 dark:bg-deep/90 backdrop-blur-md p-4 sm:p-5 rounded-xl border border-white/20 shadow-xl pointer-events-auto">
-                                    <p className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Live Savings</p>
-                                    <p className="text-xl sm:text-3xl font-black text-primary">₹2,45,000</p>
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                        <div className="grid lg:grid-cols-2 gap-12 items-center">
+                            <div className="flex flex-col gap-8 max-w-2xl">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 w-fit">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                    </span>
+                                    <span className="text-primary text-xs font-bold uppercase tracking-wider">AI-Powered Scanning Live</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 sm:gap-2 bg-accent text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-accent/20 pointer-events-auto">
-                                    <span className="material-symbols-outlined text-sm sm:text-base">trending_up</span>+12.4% Optimal
+                                <div className="flex flex-col gap-4 text-left">
+                                    <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight text-left">
+                                        Find the Best Insurance Policy with <span className="text-primary">Innovation</span>
+                                    </h1>
+                                    <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg text-left">
+                                        Experience the future of Insurtech with AI-powered scanning that finds your perfect coverage in seconds. Compare thousands of policies instantly.
+                                    </p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+                                    <div className="flex-1 relative">
+                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
+                                        <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all shadow-sm" placeholder="Enter your email for a free scan" type="email" />
+                                    </div>
+                                    <button
+                                        onClick={() => navigate(user ? '/scan' : '/login')}
+                                        className="bg-primary text-white px-8 py-4 rounded-xl font-bold hover:bg-primary/90 shadow-xl shadow-primary/30 flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-95"
+                                    >
+                                        <span>Scan Now</span>
+                                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="relative group">
+                                <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 to-transparent blur-3xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                                <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+                                    <img alt="Insurance protection" className="w-full h-full object-cover aspect-[4/3]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC778QwwLw_6c5Nw5xtAJOy8SCHFTTFl_zK-WCm7Mz1SZOWM-khMF1xKK_p6gmcv170naKi682B5QqXD656OKNJHXA4pG95pIEN71__AZL2pYUDMy_ns2vik8DK6D8RCEk62AcMIhMu7ZHLPXQz4AHtG69VY_-TbpOzSlrexy-2MqYIgbkDQcBVAGX7qSVsnAyxoq7SFFwJvDhUFj9rrynOEOjR_mBaVIRbStAOPwhR3zM2Ta3fPBEdl3-Ct8N6Lr2b87frSzEMSgQY" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent"></div>
+                                    <div className="absolute bottom-6 left-6 right-6 p-5 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/30 dark:border-slate-800/30">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-2 bg-green-500/20 text-green-600 rounded-full">
+                                                <span className="material-symbols-outlined">check_circle</span>
+                                            </div>
+                                            <div className="text-left">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Policy Match Found</p>
+                                                <p className="text-sm font-bold text-slate-900 dark:text-white">Optimization Score: 98%</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* Why Choose */}
-                <section id="solutions" className="py-20 bg-slate-50 dark:bg-deep/50">
-                    <div className="mx-auto max-w-7xl px-6">
-                        <div className="mb-16 text-center">
-                            <h2 className="text-3xl font-bold tracking-tight text-deep dark:text-white sm:text-4xl">{t('whyChoose')}</h2>
-                            <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">{t('whyDesc')}</p>
+                {/* Trusted By Section */}
+                <section className="py-12 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800 transition-colors">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-10">Trusted by Industry Leaders</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 items-center justify-items-center opacity-70 grayscale hover:grayscale-0 transition-all duration-500 dark:invert dark:brightness-150">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-3xl">shield_person</span>
+                                <span className="text-xl font-bold text-slate-800">Guardian</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-3xl">account_balance</span>
+                                <span className="text-xl font-bold text-slate-800">NexaSafe</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-3xl">bolt</span>
+                                <span className="text-xl font-bold text-slate-800">SwiftInsure</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-3xl">public</span>
+                                <span className="text-xl font-bold text-slate-800">OmniShield</span>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    </div>
+                </section>
+
+                {/* Feature Cards Section */}
+                <section className="py-24 bg-slate-50/50 dark:bg-background-dark/50 lg:py-32">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl mb-4 tracking-tight">The AegisAI Advantage</h2>
+                            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">Revolutionizing the insurance landscape with state-of-the-art artificial intelligence designed for accuracy and speed.</p>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-8">
                             {[
-                                { icon: 'bolt', title: t('instantQuotes'), desc: t('instantDesc'), color: 'bg-primary' },
-                                { icon: 'target', title: t('aiAccuracy'), desc: t('aiDesc'), color: 'bg-secondary' },
-                                { icon: 'payments', title: t('support247'), desc: t('supportDesc'), color: 'bg-accent' },
-                            ].map((c, i) => (
-                                <div key={i} className="group relative bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:-translate-y-1 transition-all">
-                                    <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-xl ${c.color} text-white transition-transform group-hover:rotate-12`}>
-                                        <span className="material-symbols-outlined">{c.icon}</span>
+                                { icon: 'timer', title: 'Instant Quotes', desc: 'Stop waiting for brokers. Our AI generates comprehensive quote comparisons in less than 30 seconds.' },
+                                { icon: 'psychology', title: 'AI-Driven Accuracy', desc: 'Advanced neural networks analyze your risk profile to find the most accurate coverage for your specific needs.' },
+                                { icon: 'support_agent', title: '24/7 Support', desc: 'Our smart agents are available around the clock to assist with claims, updates, and any policy questions.' }
+                            ].map((f, i) => (
+                                <div key={i} className="group bg-white dark:bg-slate-900 p-10 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                                    <div className="w-14 h-14 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                        <span className="material-symbols-outlined text-3xl">{f.icon}</span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-deep dark:text-white mb-3">{c.title}</h3>
-                                    <p className="text-slate-600 dark:text-slate-400">{c.desc}</p>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">{f.title}</h3>
+                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{f.desc}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </section>
 
-                {/* How it Works */}
-                <section id="how" className="py-20 overflow-hidden">
-                    <div className="mx-auto max-w-7xl px-6">
-                        <div className="flex flex-col lg:flex-row gap-16 items-center">
-                            <div className="flex-1 order-2 lg:order-1">
-                                <h2 className="text-3xl font-bold tracking-tight text-deep dark:text-white sm:text-4xl mb-12">The Insurance Process, Simplified</h2>
-                                <div className="space-y-8">
+                {/* How It Works Section */}
+                <section className="py-24 bg-white dark:bg-slate-900 lg:py-32">
+                    <div className="max-w-7xl mx-auto px-4">
+                        <div className="flex flex-col lg:flex-row items-center gap-16">
+                            <div className="lg:w-1/2 text-left">
+                                <h2 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-8 leading-tight tracking-tight">A Smarter Journey to Protection in 3 Easy Steps</h2>
+                                <div className="space-y-10">
                                     {[
-                                        { n: '1', title: 'Upload Data', desc: 'Simply drag and drop your existing documents or connect your current provider.', color: 'bg-primary/10 text-primary' },
-                                        { n: '2', title: 'AI Matching', desc: 'Our engine scans thousands of plans to find the needle in the haystack.', color: 'bg-secondary/10 text-secondary' },
-                                        { n: '3', title: 'Secure Enrollment', desc: 'Finalize your new policy with one click and instant digital signing.', color: 'bg-accent/10 text-accent' },
+                                        { n: '1', title: 'Connect Your Profile', desc: 'Securely link your basic information. Our AI encrypts all data with military-grade security protocols.' },
+                                        { n: '2', title: 'AI Scan & Compare', desc: 'AegisAI scans millions of data points across top-rated carriers to find hidden discounts and optimal terms.' },
+                                        { n: '3', title: 'Select & Secure', desc: 'Pick the best plan and finalize your coverage digitally. No paperwork, no hassle, just peace of mind.' }
                                     ].map((s, i) => (
-                                        <div key={i} className="flex gap-4">
-                                            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${s.color} font-bold`}>{s.n}</div>
-                                            <div><h4 className="font-bold text-deep dark:text-white">{s.title}</h4><p className="text-slate-600 dark:text-slate-400">{s.desc}</p></div>
+                                        <div key={i} className="flex gap-6">
+                                            <div className="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold shadow-lg shadow-primary/30">{s.n}</div>
+                                            <div>
+                                                <h4 className="text-xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">{s.title}</h4>
+                                                <p className="text-slate-600 dark:text-slate-400">{s.desc}</p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="flex-1 order-1 lg:order-2">
-                                <div className="relative rounded-3xl overflow-hidden">
-                                    <img className="w-full h-auto object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGoM6-mov8uq92Jl2q1AzHHaliqpepnkWt_8d8vgU2CTPJsMLHCxI9vlDTcpOAcbyWoaZn6VagxcDfds2GmqAKBwryas3feovPFe9fcF8wV5Lu3W8pyQZyWuFkXLH33QzscuKhsXd59XumvPtvlqlMnuuaAcapr878VABnrzzfnrz4mepZjbpswPu-dxjm-OS0taFagabxxEc4U0Z2hb4ZQo2RHKTx1b87fJjO_DW5pL3ddbkBgPcGmN0ABi6ohRBNGvpIUcj3EDc" alt="Smart Tech" />
-                                    <div className="absolute inset-0 bg-primary/20 mix-blend-multiply" />
+                            <div className="lg:w-1/2 relative">
+                                <div className="rounded-3xl overflow-hidden shadow-2xl">
+                                    <img alt="Modern insurance selection" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfObuiBVCupaEHZ8gzW-XuHoYmeKR2JgRBl9eWEIDM5UgUKrterS_R32XbBd1fxb9ULcpqYk9G4yBYsziFNfBIHLSjPFbdv_6obVv5_cmeNXs04v1fn2e73dljQbVnYKWz0DmOy6ybD3iCBZF1oxv79y4MCQoAe4NiWmv5Ry-SkRbEqIBhG5Vqc0KxlBB6bK0BGu0jinTMQHil2VhP5i4qFLcgDK4Ovvjr-bvyHMrd_E9VteWSfFgdQCx7GMt4SOp-2AwB_-wsvJjd" />
+                                </div>
+                                <div className="absolute -bottom-8 -left-8 bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 hidden md:block">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-primary/10 text-primary rounded-full">
+                                            <span className="material-symbols-outlined">verified</span>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-xl font-bold text-slate-900 dark:text-white">100% Digital</p>
+                                            <p className="text-sm text-slate-500">Zero physical paperwork required</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* CTA */}
-                <section className="py-20 bg-gradient-to-r from-primary to-secondary text-white">
-                    <div className="mx-auto max-w-5xl px-6 text-center">
-                        <h2 className="text-3xl font-bold mb-6 sm:text-5xl">Ready for a Smarter Way to Insure?</h2>
-                        <p className="text-white/70 text-lg mb-10 max-w-2xl mx-auto">Join thousands of people who have simplified their insurance and saved thousands annually.</p>
-                        <div className="flex flex-wrap justify-center gap-4">
-                            <button onClick={() => navigate(user ? '/proposal' : '/login')} className="bg-white text-primary px-10 py-4 rounded-xl font-bold hover:bg-slate-100 transition-all text-lg shadow-2xl">
-                                Start Your Free Analysis
-                            </button>
-                            <button onClick={() => navigate(user ? '/dashboard' : '/login')} className="bg-white/10 backdrop-blur border border-white/20 text-white px-10 py-4 rounded-xl font-bold hover:bg-white/20 transition-all text-lg">
-                                Schedule a Demo
-                            </button>
+                {/* Final CTA Section */}
+                <section className="py-20 px-4">
+                    <div className="max-w-5xl mx-auto">
+                        <div className="relative rounded-[2rem] bg-slate-900 p-8 md:p-16 overflow-hidden text-center text-white">
+                            <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-primary rounded-full blur-[120px] opacity-30"></div>
+                            <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-primary/40 rounded-full blur-[120px] opacity-20"></div>
+                            <div className="relative z-10 flex flex-col items-center gap-8">
+                                <h2 className="text-3xl md:text-5xl font-black tracking-tight max-w-2xl leading-tight text-center">Ready for a Smarter Way to Insure?</h2>
+                                <p className="text-slate-400 text-lg max-w-xl">Join over 500,000+ individuals and businesses who have optimized their coverage with AegisAI.</p>
+                                <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                                    <button
+                                        onClick={() => navigate(user ? '/proposal' : '/login')}
+                                        className="bg-primary hover:bg-primary/90 text-white font-bold py-4 px-10 rounded-xl transition-all shadow-lg shadow-primary/40 text-lg active:scale-95"
+                                    >
+                                        Get Started Now
+                                    </button>
+                                    <button
+                                        onClick={() => navigate(user ? '/dashboard' : '/login')}
+                                        className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold py-4 px-10 rounded-xl transition-all border border-white/20 text-lg"
+                                    >
+                                        Talk to an Expert
+                                    </button>
+                                </div>
+                                <p className="text-slate-500 text-sm">No credit card required. Scan takes less than 60 seconds.</p>
+                            </div>
                         </div>
                     </div>
                 </section>
             </main>
 
             {/* Footer */}
-            <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark py-12 px-6">
-                <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-4 gap-8">
-                    <div className="col-span-2 md:col-span-1">
-                        <div className="flex items-center gap-2 mb-6">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-                                <span className="material-symbols-outlined text-lg">shield_with_heart</span>
+            <footer className="bg-slate-50 dark:bg-background-dark py-16 border-t border-slate-200 dark:border-slate-800 transition-colors">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 lg:gap-8 text-left">
+                        <div className="col-span-2 lg:col-span-2 pr-8">
+                            <div className="flex items-center gap-2 mb-6">
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                                    <span className="material-symbols-outlined text-xl">shield_with_heart</span>
+                                </div>
+                                <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">AegisAI</span>
                             </div>
-                            <span className="text-lg font-bold tracking-tight text-deep dark:text-white">AegisAI</span>
+                            <p className="text-slate-500 max-w-sm mb-8">
+                                The next generation of insurance technology. Secure, fast, and driven by the world's most advanced AI risk assessment algorithms.
+                            </p>
+                            <div className="flex gap-4">
+                                <a className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-all" href="#">
+                                    <span className="material-symbols-outlined text-xl">share</span>
+                                </a>
+                                <a className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-all" href="#">
+                                    <span className="material-symbols-outlined text-xl">alternate_email</span>
+                                </a>
+                            </div>
                         </div>
-                        <p className="text-sm text-slate-500 max-w-xs">Revolutionizing insurance through artificial intelligence and user-centric design.</p>
-                    </div>
-                    <div>
-                        <h5 className="font-bold mb-4 text-deep dark:text-white">Product</h5>
-                        <ul className="space-y-2 text-sm text-slate-500">
-                            <li><a className="hover:text-primary transition-colors" href="#">Features</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Integrations</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Pricing</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Security</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h5 className="font-bold mb-4 text-deep dark:text-white">Company</h5>
-                        <ul className="space-y-2 text-sm text-slate-500">
-                            <li><a className="hover:text-primary transition-colors" href="#">About Us</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Careers</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Blog</a></li>
-                            <li><a className="hover:text-primary transition-colors" href="#">Press</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h5 className="font-bold mb-4 text-deep dark:text-white">Social</h5>
-                        <div className="flex gap-4">
-                            <a className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-all" href="#"><span className="material-symbols-outlined">public</span></a>
-                            <a className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-all" href="#"><span className="material-symbols-outlined">alternate_email</span></a>
+                        <div>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Products</h5>
+                            <ul className="space-y-4 text-sm text-slate-500 font-medium">
+                                <li><a className="hover:text-primary" href="#">Life Insurance</a></li>
+                                <li><a className="hover:text-primary" href="#">Health Care</a></li>
+                                <li><a className="hover:text-primary" href="#">Auto Coverage</a></li>
+                                <li><a className="hover:text-primary" href="#">Home Shield</a></li>
+                            </ul>
                         </div>
-                    </div>
-                </div>
-                <div className="mx-auto max-w-7xl mt-12 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between gap-4 text-xs text-slate-400 uppercase tracking-widest font-bold">
-                    <p>© 2026 AegisAI Technologies Inc. All rights reserved.</p>
-                    <div className="flex gap-6">
-                        <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-                        <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
+                        <div>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Company</h5>
+                            <ul className="space-y-4 text-sm text-slate-500 font-medium">
+                                <li><a className="hover:text-primary" href="#">About Us</a></li>
+                                <li><a className="hover:text-primary" href="#">Careers</a></li>
+                                <li><a className="hover:text-primary" href="#">Privacy Policy</a></li>
+                                <li><a className="hover:text-primary" href="#">Terms of Service</a></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Support</h5>
+                            <ul className="space-y-4 text-sm text-slate-500 font-medium">
+                                <li><a className="hover:text-primary" href="#">Help Center</a></li>
+                                <li><a className="hover:text-primary" href="#">Documentation</a></li>
+                                <li><a className="hover:text-primary" href="#">Claim Center</a></li>
+                                <li><a className="hover:text-primary" href="#">Contact</a></li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </footer>

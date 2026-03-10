@@ -38,7 +38,7 @@ export default function DashboardPage() {
     const filteredProposals = proposals.filter(p => filter === 'all' || p.status === filter);
 
     return (
-        <div className="pt-16">
+        <div className="">
             {/* Desktop Dashboard */}
             <div className="hidden md:block">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">

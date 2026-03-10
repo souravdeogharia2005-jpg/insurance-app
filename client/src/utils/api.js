@@ -117,6 +117,12 @@ export async function deleteAdminProposal(id) {
     return res.json();
 }
 
+export async function getAdminStats() {
+    const res = await request('/admin/stats');
+    if (!res || !res.ok) return { totalUnderwritten: 0, activeProposals: 0, approvalRate: 0, avgProcessingTime: 0, revenueHistory: [] };
+    return res.json();
+}
+
 export async function forgotPassword(email) {
     const res = await fetch(API + '/auth/forgot-password', {
         method: 'POST',

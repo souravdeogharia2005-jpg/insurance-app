@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { getAdminProposals, updateAdminProposal, deleteAdminProposal } from '../utils/api';
+import { getAdminProposals, updateAdminProposal, deleteAdminProposal, getAdminStats } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Lock, Eye, Trash2, Search, X, ChevronDown, Download, LockOpen } from 'lucide-react';
+import { Shield, Lock, Eye, Trash2, Search, X, ChevronDown, Download, LockOpen, TrendingUp, Users, Activity, Wallet, MoreVertical, Filter, Bell } from 'lucide-react';
 
 const ADMIN_PASSWORD = 'student123';
 const ADMIN_NAME = 'SHREYA DEOGHARIA';
@@ -14,15 +14,27 @@ export default function AdminPage() {
     const [password, setPassword] = useState('');
     const [passError, setPassError] = useState('');
     const [proposals, setProposals] = useState([]);
+    const [stats, setStats] = useState({ totalUnderwritten: 0, activeProposals: 0, approvalRate: 0, avgProcessingTime: 0, revenueHistory: [] });
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [viewProp, setViewProp] = useState(null);
     const [delProp, setDelProp] = useState(null);
-    const [openMenu, setOpenMenu] = useState(null);
 
     useEffect(() => { if (unlocked) loadData(); }, [unlocked]);
-    const loadData = () => { setLoading(true); getAdminProposals().then(p => { setProposals(p); setLoading(false); }); };
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [p, s] = await Promise.all([getAdminProposals(), getAdminStats()]);
+            setProposals(p);
+            setStats(s);
+        } catch (err) {
+            console.error('Failed to load admin data', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const tryUnlock = (e) => {
         e.preventDefault();
@@ -35,11 +47,13 @@ export default function AdminPage() {
     };
 
     const changeStatus = async (id, status) => {
-        await updateAdminProposal(id, { status }); setOpenMenu(null); loadData();
+        await updateAdminProposal(id, { status }); loadData();
     };
+
     const confirmDelete = async () => {
         if (delProp) { await deleteAdminProposal(delProp); setDelProp(null); loadData(); }
     };
+
     const handleEditSave = async () => {
         if (viewProp) { await updateAdminProposal(viewProp.id, viewProp); setViewProp(null); loadData(); }
     };
@@ -50,123 +64,239 @@ export default function AdminPage() {
         return matchSearch && matchFilter;
     });
 
-    const fmtStatus = (s) => s ? s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—';
-    const statusBadge = (s) => ({ approved: 'badge-green', pending: 'badge-yellow', rejected: 'badge-red', under_review: 'badge-blue' }[s] || 'badge-blue');
-    const emrColor = (emr) => { if (!emr) return 'inherit'; if (emr <= 110) return '#10b981'; if (emr <= 130) return '#f59e0b'; return '#ef4444'; };
-
-    // Admin gate
     if (!unlocked) {
         return (
-            <div className="admin-gate">
-                <motion.div className="gate-card" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="gate-icon"><Lock size={32} /></div>
-                    <h2>{t('adminPanel')}</h2>
-                    <p className="text-muted">{t('enterAdminPass')}</p>
-                    <form onSubmit={tryUnlock} className="gate-form">
-                        <div className="input-group">
-                            <span className="material-symbols-outlined input-icon text-slate-400">person</span>
-                            <input type="text" placeholder="Admin Name" value={adminName} onChange={e => setAdminName(e.target.value)} autoFocus />
+            <div className="min-h-[90vh] flex items-center justify-center p-4">
+                <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full text-center">
+                    <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-8">
+                        <Shield size={40} />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Command Center</h2>
+                    <p className="text-slate-500 mb-10">Restricted access. Please identify yourself.</p>
+                    <form onSubmit={tryUnlock} className="space-y-4">
+                        <div className="relative">
+                            <input placeholder="Admin Name" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 pl-12 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={adminName} onChange={e => setAdminName(e.target.value)} />
+                            <Users size={18} className="absolute left-4 top-4.5 text-slate-400" />
                         </div>
-                        <div className="input-group">
-                            <Lock size={16} className="input-icon" />
-                            <input type="password" placeholder={t('adminPassword')} value={password} onChange={e => setPassword(e.target.value)} />
+                        <div className="relative">
+                            <input type="password" placeholder="Passkey" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 pl-12 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={password} onChange={e => setPassword(e.target.value)} />
+                            <Lock size={18} className="absolute left-4 top-4.5 text-slate-400" />
                         </div>
-                        {passError && <p className="login-error">{passError}</p>}
-                        <button type="submit" className="btn btn-primary btn-full"><LockOpen size={16} /> {t('unlock')}</button>
+                        {passError && <p className="text-red-500 text-sm font-bold">{passError}</p>}
+                        <button type="submit" className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">Authorize Access <LockOpen size={18} /></button>
                     </form>
                 </motion.div>
             </div>
         );
     }
 
-    if (loading) return <div className="page-loader"><div className="spinner" /></div>;
+    if (loading) return <div className="min-h-[80vh] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
     return (
-        <div className="admin-page">
-            <div className="page-header"><h1>{t('adminPanel')}</h1><p>{t('manageAll')}</p></div>
-            <div className="admin-toolbar">
-                <div className="search-box"><Search size={16} /><input placeholder={t('searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)} /></div>
-                <select className="form-select filter-select" value={filter} onChange={e => setFilter(e.target.value)}>
-                    <option value="all">{t('allStatus')}</option>
-                    <option value="pending">{t('pending')}</option><option value="approved">{t('approved')}</option>
-                    <option value="rejected">{t('rejected')}</option><option value="under_review">{t('underReview')}</option>
-                </select>
-            </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div className="table-wrap">
-                    <table className="data-table">
-                        <thead><tr><th>ID</th><th>Name</th><th>EMR</th><th>Risk</th><th>Premium</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-                        <tbody>
-                            {filtered.length === 0 && <tr><td colSpan={8}><p className="text-center text-muted" style={{ padding: '2rem' }}>{t('noProposals')}</p></td></tr>}
-                            {filtered.map(p => (
-                                <tr key={p.id}>
-                                    <td className="mono">{p.id}</td><td className="fw-600">{p.name || '—'}</td>
-                                    <td><span className="fw-700" style={{ color: emrColor(p.emrScore) }}>{p.emrScore || '—'}</span></td>
-                                    <td><span className={`badge ${statusBadge(p.riskClass?.includes('IV') || p.riskClass?.includes('V') ? 'rejected' : p.riskClass === 'Class III' ? 'pending' : 'approved')}`}>{p.riskClass || '—'}</span></td>
-                                    <td className="fw-600">{p.premium ? fc(p.premium.total) : '—'}</td>
-                                    <td>
-                                        <select title={t('changeStatus')} className={`badge ${statusBadge(p.status)} appearance-none outline-none cursor-pointer border-0 font-bold px-3 py-1 bg-opacity-20`} value={p.status} onChange={e => changeStatus(p.id, e.target.value)}>
-                                            <option className="text-deep dark:text-white bg-white dark:bg-slate-800" value="pending">{fmtStatus('pending')}</option>
-                                            <option className="text-deep dark:text-white bg-white dark:bg-slate-800" value="approved">{fmtStatus('approved')}</option>
-                                            <option className="text-deep dark:text-white bg-white dark:bg-slate-800" value="rejected">{fmtStatus('rejected')}</option>
-                                            <option className="text-deep dark:text-white bg-white dark:bg-slate-800" value="under_review">{fmtStatus('under_review')}</option>
-                                        </select>
-                                    </td>
-                                    <td className="text-muted">{fd(p.createdAt)}</td>
-                                    <td>
-                                        <div className="action-btns">
-                                            <button className="icon-btn" title="View" onClick={() => setViewProp(p)}><Eye size={14} /></button>
-                                            <button className="icon-btn danger" title="Delete" onClick={() => setDelProp(p.id)}><Trash2 size={14} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+        <div className="max-w-7xl mx-auto px-4 py-4 lg:py-6 space-y-10">
+
+            {/* Dashboard Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Network Live</span>
+                        <span className="text-slate-400 text-xs font-bold">{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </div>
+                    <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Executive Dashboard</h1>
+                </div>
+                <div className="flex items-center gap-4">
+                    <button onClick={loadData} className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-sm hover:bg-slate-50 transition-all text-slate-500"><Activity size={20} /></button>
+                    <button className="bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-primary/20 flex items-center gap-2"><Download size={18} /> Export Analytics</button>
                 </div>
             </div>
 
-            {/* Edit Modal */}
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                    { label: 'Total Underwritten', val: fc(stats.totalUnderwritten), icon: Wallet, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                    { label: 'Active Proposals', val: stats.activeProposals, icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                    { label: 'Approval Rate', val: `${stats.approvalRate}%`, icon: Shield, color: 'text-green-500', bg: 'bg-green-500/10' },
+                    { label: 'Processing Time', val: `${stats.avgProcessingTime || 1.2}h`, icon: Activity, color: 'text-purple-500', bg: 'bg-purple-500/10' }
+                ].map((m, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-5">
+                        <div className={`${m.bg} ${m.color} p-4 rounded-2xl`}><m.icon size={24} /></div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{m.label}</p>
+                            <p className="text-2xl font-black text-slate-900 dark:text-white">{m.val}</p>
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-8">
+
+                {/* Proposal Table */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+                        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">Recent Submissions <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs px-2 py-0.5 rounded-md font-bold">{filtered.length}</span></h3>
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <input placeholder="Filter name or ID..." className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-primary outline-none" value={search} onChange={e => setSearch(e.target.value)} />
+                                    <Search size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
+                                </div>
+                                <select className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 text-sm font-bold outline-none cursor-pointer" value={filter} onChange={e => setFilter(e.target.value)}>
+                                    <option value="all">All</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="under_review">Review</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-slate-50/50 dark:bg-slate-800/20 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                        <th className="px-8 py-5">Profile</th>
+                                        <th className="px-6 py-5">EMR / Risk</th>
+                                        <th className="px-6 py-5">Premium</th>
+                                        <th className="px-6 py-5">Status</th>
+                                        <th className="px-8 py-5 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+                                    {filtered.map((p, i) => (
+                                        <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors group">
+                                            <td className="px-8 py-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs">{p.name?.[0] || 'A'}</div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-900 dark:text-white text-sm">{p.name}</p>
+                                                        <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">{p.id}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-black text-slate-900 dark:text-white">{p.emrScore}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${p.riskClass?.includes('IV') ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>{p.riskClass}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 font-bold text-slate-700 dark:text-slate-300 text-sm">{p.premium ? fc(p.premium.total) : '—'}</td>
+                                            <td className="px-6 py-5">
+                                                <select value={p.status} onChange={e => changeStatus(p.id, e.target.value)} className={`text-[10px] font-black uppercase px-4 py-2 rounded-full border-none focus:ring-2 focus:ring-primary outline-none cursor-pointer ${p.status === 'approved' ? 'bg-green-500/10 text-green-500' : p.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="approved">Approved</option>
+                                                    <option value="under_review">Review</option>
+                                                    <option value="rejected">Rejected</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-8 py-5 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => setViewProp(p)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 transition-all"><Eye size={16} /></button>
+                                                    <button onClick={() => setDelProp(p.id)} className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-all"><Trash2 size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Sidebar Stats */}
+                <div className="space-y-8">
+
+                    {/* Revenue Chart (Mock SVG) */}
+                    <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10"><TrendingUp size={100} /></div>
+                        <h4 className="text-xs font-black uppercase tracking-[0.21em] text-primary mb-1">Growth Forecast</h4>
+                        <h3 className="text-xl font-bold mb-10">Revenue Analytics</h3>
+
+                        <div className="h-40 flex items-end justify-between gap-1 mb-6">
+                            {(stats.revenueHistory || [20, 45, 30, 60, 40, 75, 55]).map((v, i) => (
+                                <div key={i} className="flex-1 group relative">
+                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-[10px] font-bold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">+{v}%</div>
+                                    <div className="w-full bg-white/5 group-hover:bg-primary/40 transition-all rounded-t-lg" style={{ height: `${v}%` }} />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">
+                            <span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span>
+                        </div>
+                    </div>
+
+                    {/* Quick Analytics / Alerts */}
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl">
+                        <h4 className="font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2"><Bell size={18} className="text-primary" /> Active Alerts</h4>
+                        <div className="space-y-6">
+                            {(stats.alerts && stats.alerts.length > 0) ? stats.alerts.map((alert, i) => (
+                                <div key={i} className={`flex gap-4 p-4 rounded-2xl border transition-all ${alert.type === 'danger' ? 'bg-red-500/5 border-red-500/10' : 'bg-green-500/5 border-green-500/10'}`}>
+                                    <div className={alert.type === 'danger' ? 'text-red-500' : 'text-green-500'}>
+                                        {alert.type === 'danger' ? <X size={18} /> : <TrendingUp size={18} />}
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-bold ${alert.type === 'danger' ? 'text-red-500' : 'text-green-500'}`}>{alert.message}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{alert.desc}</p>
+                                    </div>
+                                </div>
+                            )) : (
+                                <p className="text-xs text-slate-400 font-bold text-center py-4">No active system alerts.</p>
+                            )}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {/* View/Edit Modal */}
             <AnimatePresence>
                 {viewProp && (
-                    <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setViewProp(null)}>
-                        <motion.div className="modal-card modal-lg" initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={e => e.stopPropagation()}>
-                            <div className="modal-header"><h3>Edit Proposal: {viewProp.id}</h3><button className="icon-btn" onClick={() => setViewProp(null)}><X size={18} /></button></div>
-                            <div className="modal-body pb-0">
-                                <div className="grid-2 mb-4">
-                                    <div className="form-group"><label>Name</label><input className="form-input" value={viewProp.name || ''} onChange={e => setViewProp({ ...viewProp, name: e.target.value })} /></div>
-                                    <div className="form-group"><label>Age</label><input type="number" className="form-input" value={viewProp.age || ''} onChange={e => setViewProp({ ...viewProp, age: e.target.value })} /></div>
-                                    <div className="form-group"><label>Gender</label><select className="form-select" value={viewProp.gender || ''} onChange={e => setViewProp({ ...viewProp, gender: e.target.value })}><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
-                                    <div className="form-group"><label>DOB</label><input type="date" className="form-input" value={viewProp.dob || ''} onChange={e => setViewProp({ ...viewProp, dob: e.target.value })} /></div>
-                                    <div className="form-group"><label>Residence</label><select className="form-select" value={viewProp.residence || ''} onChange={e => setViewProp({ ...viewProp, residence: e.target.value })}><option value="urban">Urban</option><option value="semi-urban">Semi-Urban</option><option value="rural">Rural</option></select></div>
-                                    <div className="form-group"><label>Profession</label><input className="form-input" value={viewProp.profession || ''} onChange={e => setViewProp({ ...viewProp, profession: e.target.value })} /></div>
-                                    <div className="form-group"><label>Income Source</label><input className="form-input" value={viewProp.incomeSource || ''} onChange={e => setViewProp({ ...viewProp, incomeSource: e.target.value })} /></div>
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setViewProp(null)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-2xl w-full max-h-[90vh] overflow-hidden relative z-10">
+                            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                <h3 className="text-2xl font-black text-slate-900 dark:text-white">Proposal Insights</h3>
+                                <button onClick={() => setViewProp(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all text-slate-500"><X size={24} /></button>
+                            </div>
+                            <div className="p-10 overflow-y-auto max-h-[calc(90vh-180px)] space-y-8">
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="space-y-1"><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Insured Name</p><input className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-3 font-bold" value={viewProp.name} onChange={e => setViewProp({ ...viewProp, name: e.target.value })} /></div>
+                                    <div className="space-y-1"><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Policy ID</p><p className="font-mono text-primary font-black">{viewProp.id}</p></div>
+                                    <div className="space-y-1"><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">EMR Index</p><p className="text-2xl font-black text-slate-900 dark:text-white">{viewProp.emrScore}</p></div>
+                                    <div className="space-y-1"><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Calculated Premium</p><p className="text-2xl font-black text-primary">{viewProp.premium ? fc(viewProp.premium.total) : '—'}</p></div>
                                 </div>
-                                <div className="grid-3 mb-6">
-                                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-center"><p className="text-xs text-slate-500 mb-1">EMR Score</p><p className="font-bold text-deep dark:text-white">{viewProp.emrScore || '—'}</p></div>
-                                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-center"><p className="text-xs text-slate-500 mb-1">Risk Class</p><p className="font-bold text-deep dark:text-white">{viewProp.riskClass || '—'}</p></div>
-                                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-center"><p className="text-xs text-slate-500 mb-1">Premium</p><p className="font-bold text-deep dark:text-white">{viewProp.premium ? fc(viewProp.premium.total) : '—'}</p></div>
+
+                                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl space-y-4">
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">System Logs</h4>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between text-sm"><span>Risk Category</span><span className="font-bold text-primary">{viewProp.riskClass}</span></div>
+                                        <div className="flex justify-between text-sm"><span>Submission Date</span><span className="font-bold">{fd(viewProp.createdAt)}</span></div>
+                                        <div className="flex justify-between text-sm"><span>Underwriting Engine</span><span className="font-bold">v4.0.2-stable</span></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="modal-btns">
-                                <button className="btn btn-secondary" onClick={() => setViewProp(null)}>{t('cancel')}</button>
-                                <button className="btn btn-primary" onClick={handleEditSave}>Save Changes</button>
+                            <div className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-4">
+                                <button onClick={() => setViewProp(null)} className="px-8 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">Discard</button>
+                                <button onClick={handleEditSave} className="bg-primary text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Save Changes</button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
-            {/* Delete Modal */}
+            {/* Delete Confirmation */}
             <AnimatePresence>
                 {delProp && (
-                    <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDelProp(null)}>
-                        <motion.div className="modal-card" initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} onClick={e => e.stopPropagation()}>
-                            <div className="delete-modal"><Trash2 size={32} className="red" /><h3>{t('deleteConfirm')}</h3><p className="text-muted">{t('deleteDesc')} <strong>{delProp}</strong></p>
-                                <div className="modal-btns"><button className="btn btn-secondary" onClick={() => setDelProp(null)}>{t('cancel')}</button><button className="btn btn-danger" onClick={confirmDelete}>{t('delete')}</button></div>
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDelProp(null)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-sm w-full text-center relative z-10">
+                            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6"><Trash2 size={32} /></div>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Delete Record?</h3>
+                            <p className="text-slate-500 mb-8">This action is irreversible. The policy data for <span className="font-bold text-slate-900 dark:text-white">{delProp}</span> will be purged.</p>
+                            <div className="flex flex-col gap-3">
+                                <button onClick={confirmDelete} className="w-full bg-red-500 text-white py-4 rounded-xl font-black shadow-xl shadow-red-500/20 active:scale-95 transition-all">Confirm Deletion</button>
+                                <button onClick={() => setDelProp(null)} className="w-full py-4 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-all">Dismiss</button>
                             </div>
                         </motion.div>
-                    </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>

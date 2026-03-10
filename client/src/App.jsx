@@ -36,7 +36,7 @@ function AppLayout() {
   return (
     <>
       {!isLoginPage && <Navbar />}
-      <main className={useMainLayout ? 'main-content' : (isHomePage ? 'pt-[72px] min-h-screen' : '')}>
+      <main className={isLoginPage ? '' : 'main-content'}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
