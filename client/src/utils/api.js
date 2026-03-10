@@ -9,9 +9,9 @@ async function request(url, options = {}) {
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // Add 25-second timeout for frontend requests (Vercel limit is ~15-30s)
+    // Increase timeout to 60 seconds for Render's cold start
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         const res = await fetch(API + url, { 
@@ -38,7 +38,7 @@ async function request(url, options = {}) {
 
 export async function register(name, email, password) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
         const res = await fetch(API + '/auth/register', { 
             method: 'POST', 
@@ -53,14 +53,14 @@ export async function register(name, email, password) {
         return data;
     } catch (err) {
         clearTimeout(timeoutId);
-        if (err.name === 'AbortError') throw new Error('Registration timed out. The server is warming up, please try again.');
+        if (err.name === 'AbortError') throw new Error('Server is taking time to wake up. Please wait 10 seconds and try again.');
         throw err;
     }
 }
 
 export async function login(email, password) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
         const res = await fetch(API + '/auth/login', { 
             method: 'POST', 
@@ -75,7 +75,7 @@ export async function login(email, password) {
         return data;
     } catch (err) {
         clearTimeout(timeoutId);
-        if (err.name === 'AbortError') throw new Error('Login timed out. Service is waking up, please retry in a few seconds.');
+        if (err.name === 'AbortError') throw new Error('Server is waking up from sleep. Please wait another 15-20 seconds and click Sign In again.');
         throw err;
     }
 }
@@ -176,7 +176,7 @@ export async function getAdminStats() {
 
 export async function forgotPassword(email) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
         const res = await fetch(API + '/auth/forgot-password', {
             method: 'POST',
@@ -190,7 +190,7 @@ export async function forgotPassword(email) {
         return data;
     } catch (err) {
         clearTimeout(timeoutId);
-        if (err.name === 'AbortError') throw new Error('Request timed out. Please wait while the service wakes up and try again.');
+        if (err.name === 'AbortError') throw new Error('Server is starting up. Please wait 15 seconds and try again.');
         throw err;
     }
 }

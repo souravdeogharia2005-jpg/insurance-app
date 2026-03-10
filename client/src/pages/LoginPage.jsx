@@ -16,24 +16,28 @@ export default function LoginPage() {
     const [successMsg, setSuccessMsg] = useState('');
     const [loading, setLoading] = useState(false);
     const [resetLoading, setResetLoading] = useState(false);
+    const [isWarming, setIsWarming] = useState(false);
     const [showPass, setShowPass] = useState(false);
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); setError(''); setSuccessMsg(''); setLoading(true);
+        e.preventDefault(); setError(''); setSuccessMsg(''); setLoading(true); setIsWarming(false);
+        const warmingTimer = setTimeout(() => setIsWarming(true), 12000);
         try {
             if (isLogin) {
                 await login(form.email, form.password);
                 setSuccessMsg('Successfully signed in!');
                 setTimeout(() => navigate('/dashboard'), 1000);
             } else {
-                if (form.password !== form.confirmPassword) { setError('Passwords do not match'); setLoading(false); return; }
-                if (form.password.length < 6) { setError('Password must be at least 6 characters'); setLoading(false); return; }
+                if (form.password !== form.confirmPassword) { setError('Passwords do not match'); setLoading(false); clearTimeout(warmingTimer); return; }
+                if (form.password.length < 6) { setError('Password must be at least 6 characters'); setLoading(false); clearTimeout(warmingTimer); return; }
                 await register(form.name, form.email, form.password);
                 setSuccessMsg('Successfully registered and signed in!');
                 setTimeout(() => navigate('/dashboard'), 1000);
             }
         } catch (err) { setError(err.message); }
         setLoading(false);
+        setIsWarming(false);
+        clearTimeout(warmingTimer);
     };
 
 
@@ -46,6 +50,8 @@ export default function LoginPage() {
         } else {
             setError('');
             setResetLoading(true);
+            setIsWarming(false);
+            const warmingTimer = setTimeout(() => setIsWarming(true), 12000);
             try {
                 const data = await forgotPassword(form.email);
                 setSuccessMsg(data.message);
@@ -54,6 +60,8 @@ export default function LoginPage() {
                 setError(err.message);
             } finally {
                 setResetLoading(false);
+                setIsWarming(false);
+                clearTimeout(warmingTimer);
             }
         }
     };
@@ -192,6 +200,12 @@ export default function LoginPage() {
                                 <div className="flex items-center gap-2">
                                     <input className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" id="remember" type="checkbox" />
                                     <label className="text-sm text-slate-500" htmlFor="remember">Remember me for 30 days</label>
+                                </div>
+                            )}
+                            {isWarming && (loading || resetLoading) && !error && (
+                                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-lg flex items-start gap-2 animate-pulse">
+                                    <span className="material-symbols-outlined text-sm mt-0.5 animate-spin">sync</span> 
+                                    <span>Server is starting up (Free Tier cold-start). This may take up to 60 seconds. Please wait...</span>
                                 </div>
                             )}
                             {error && <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 p-3 rounded-lg flex items-start gap-2"><span className="material-symbols-outlined text-sm mt-0.5">error</span> {error}</div>}

@@ -9,7 +9,14 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 // Standard fetch support for all Node versions
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+let nodeFetch;
+const fetch = (...args) => {
+    if (nodeFetch) return nodeFetch(...args);
+    return import('node-fetch').then(({default: f}) => {
+        nodeFetch = f;
+        return nodeFetch(...args);
+    });
+};
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com'; // Use env or fallback
