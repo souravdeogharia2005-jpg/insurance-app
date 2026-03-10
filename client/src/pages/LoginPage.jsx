@@ -59,7 +59,11 @@ export default function LoginPage() {
             const warmingTimer = setTimeout(() => setIsWarming(true), 12000);
             try {
                 const data = await forgotPassword(form.email);
-                setSuccessMsg(data.message);
+                let msg = data.message;
+                if (data.tempPassword) {
+                    msg += ` [Temp Password: ${data.tempPassword}]`;
+                }
+                setSuccessMsg(msg);
                 setError('');
             } catch (err) {
                 setError(err.message);

@@ -338,22 +338,24 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
             const successData = await brevoRes.json();
             console.log(`✅ Success! Password reset accepted by Brevo. ID: ${successData.messageId}`);
-
-            // Pre-hash before DB call to identify any bcrypt overhead
-            const startHash = Date.now();
             const passwordHash = await bcrypt.hash(tempPassword, 10);
-            console.log(`⏱️ Bcrypt Hash Time: ${Date.now() - startHash}ms`);
-            
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
-            res.json({ message: `Success! New password sent to ${email}. Check your inbox/spam.` });
+            // Restore behavior: Return temporary password in response for immediate feedback
+            res.json({ 
+                message: `Success! New password sent to ${email}.`,
+                tempPassword: tempPassword // Provide on-screen fallback as requested by user
+            });
         } catch (emailErr) {
-            if (emailErr.name === 'AbortError') {
-                console.error('⏱️ Brevo API Timeout after 8s');
-                return res.status(504).json({ error: 'Email service timed out. Please try again in a moment.' });
-            }
-            console.error('💥 Brevo/Network Error during reset:', emailErr.message);
-            res.status(500).json({ error: 'Failed to communicate with the email service provider.' });
+            console.error('💥 Mail/Network Error during reset:', emailErr.message);
+            // Fallback: If email fails, STILL update password and show it on screen so user isn't locked out
+            const passwordHash = await bcrypt.hash(tempPassword, 10);
+            await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
+            res.json({ 
+                message: `Email delivery failed, but your password was reset.`,
+                tempPassword: tempPassword,
+                warning: 'Email provider is currently slow. Please note down this password.'
+            });
         }
     } catch (error) {
         console.error('Forgot password internal error:', error.message);
@@ -603,21 +605,17 @@ app.get('/api/diag', (req, res) => {
 });
 
 // --- Start Server ---
-async function startServer() {
-    try {
-        const conn = await pool.getConnection();
-        console.log('✅ Connected to MySQL database!');
-        conn.release();
-        app.listen(PORT, () => {
-            console.log(`\n🚀 AegisAI Server v${SERVER_VERSION} running at http://localhost:${PORT}`);
-            console.log(`📡 API: http://localhost:${PORT}/api`);
-            console.log(`🔐 Auth: /api/auth/register, /api/auth/login, /api/auth/me\n`);
+app.listen(PORT, () => {
+    console.log(`\n🚀 AegisAI Server v${SERVER_VERSION} listening on port ${PORT}`);
+    console.log(`📡 Health Check: http://localhost:${PORT}/api/health\n`);
+    
+    // Connect to DB in background so Render doesn't kill us for being slow
+    pool.getConnection()
+        .then(conn => {
+            console.log('✅ Connected to MySQL database!');
+            conn.release();
+        })
+        .catch(err => {
+            console.error('⚠️ DB Connection Post-Startup Failed:', err.message);
         });
-    } catch (error) {
-        console.error('❌ Failed to connect to MySQL:', error.message);
-        if (error.code === 'ER_BAD_DB_ERROR') console.error('💡 Run "node setup-db.js" first');
-        process.exit(1);
-    }
-}
-
-startServer();
+});
