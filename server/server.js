@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_EMAIL = 'souravdeogharia2005@gmail.com'; // Hardcoded confirmed authorized sender
+const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com'; // Use env or fallback
 const SERVER_VERSION = '4.0.0';
 
 const app = express();
@@ -23,6 +23,18 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Request Timing Middleware to detect slow wake-ups or DB queries
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        if (duration > 1000) {
+            console.log(`⏱️ SLOW REQUEST: ${req.method} ${req.originalUrl} took ${duration}ms`);
+        }
+    });
+    next();
+});
+
 // --- MySQL Connection Pool ---
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
@@ -31,7 +43,10 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'aegisai_insurance',
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 20, // Increased for better concurrency
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
 });
 
 // --- Auth Middleware ---
@@ -289,6 +304,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                 `,
             };
 
+            // Add AbortController for fetch timeout
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
             const brevoRes = await fetch(BREVO_API_URL, {
                 method: 'POST',
                 headers: {
@@ -296,8 +315,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                     'api-key': process.env.BREVO_API_KEY,
                     'content-type': 'application/json'
                 },
-                body: JSON.stringify(resetEmailBody)
+                body: JSON.stringify(resetEmailBody),
+                signal: controller.signal
             });
+            clearTimeout(timeout);
 
             if (!brevoRes.ok) {
                 const errorData = await brevoRes.json();
@@ -307,14 +328,20 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
             const successData = await brevoRes.json();
             console.log(`✅ Success! Password reset accepted by Brevo. ID: ${successData.messageId}`);
-            console.log(`🔑 DEBUG: Temp password for ${email} is "${tempPassword}"`);
 
-            // ONLY update DB if email was actually sent
+            // Pre-hash before DB call to identify any bcrypt overhead
+            const startHash = Date.now();
             const passwordHash = await bcrypt.hash(tempPassword, 10);
+            console.log(`⏱️ Bcrypt Hash Time: ${Date.now() - startHash}ms`);
+            
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
             res.json({ message: `Success! New password sent to ${email}. Check your inbox/spam.` });
         } catch (emailErr) {
+            if (emailErr.name === 'AbortError') {
+                console.error('⏱️ Brevo API Timeout after 8s');
+                return res.status(504).json({ error: 'Email service timed out. Please try again in a moment.' });
+            }
             console.error('💥 Brevo/Network Error during reset:', emailErr.message);
             res.status(500).json({ error: 'Failed to communicate with the email service provider.' });
         }

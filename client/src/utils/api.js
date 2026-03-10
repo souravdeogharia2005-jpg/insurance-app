@@ -8,25 +8,76 @@ async function request(url, options = {}) {
     const token = getToken();
     const headers = { 'Content-Type': 'application/json', ...options.headers };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(API + url, { ...options, headers });
-    if ((res.status === 401 || res.status === 403) && !url.includes('/auth/change-password')) { removeToken(); window.location.href = '/login'; return null; }
-    return res;
+
+    // Add 25-second timeout for frontend requests (Vercel limit is ~15-30s)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+    try {
+        const res = await fetch(API + url, { 
+            ...options, 
+            headers,
+            signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+        
+        if ((res.status === 401 || res.status === 403) && !url.includes('/auth/change-password')) { 
+            removeToken(); 
+            window.location.href = '/login'; 
+            return null; 
+        }
+        return res;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            throw new Error('Request timed out. The server might be waking up, please try again in 10 seconds.');
+        }
+        throw err;
+    }
 }
 
 export async function register(name, email, password) {
-    const res = await fetch(API + '/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password }) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
-    setToken(data.token);
-    return data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    try {
+        const res = await fetch(API + '/auth/register', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ name, email, password }),
+            signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Registration failed');
+        setToken(data.token);
+        return data;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Registration timed out. The server is warming up, please try again.');
+        throw err;
+    }
 }
 
 export async function login(email, password) {
-    const res = await fetch(API + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
-    setToken(data.token);
-    return data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    try {
+        const res = await fetch(API + '/auth/login', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ email, password }),
+            signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+        setToken(data.token);
+        return data;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Login timed out. Service is waking up, please retry in a few seconds.');
+        throw err;
+    }
 }
 
 export async function getMe() {
@@ -124,14 +175,24 @@ export async function getAdminStats() {
 }
 
 export async function forgotPassword(email) {
-    const res = await fetch(API + '/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
-    return data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    try {
+        const res = await fetch(API + '/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
+        return data;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Request timed out. Please wait while the service wakes up and try again.');
+        throw err;
+    }
 }
 
 export function logout() { removeToken(); }
