@@ -142,13 +142,13 @@ export default function Navbar() {
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 mb-2 text-slate-500"><Globe size={14} /> Language</div>
                                             <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border-none focus:ring-2 focus:ring-primary outline-none">
-                                                {Object.entries(languages).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                                {languages.map(l => <option key={l.code} value={l.code}>{l.native}</option>)}
                                             </select>
                                         </div>
                                         <div className="space-y-2">
                                             <div className="flex items-center gap-2 mb-2 text-slate-500"><CreditCard size={14} /> Currency</div>
                                             <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border-none focus:ring-2 focus:ring-primary outline-none">
-                                                {Object.entries(currencies).map(([k, v]) => <option key={k} value={k}>{v.id}</option>)}
+                                                {currencies.map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
                                     </div>
