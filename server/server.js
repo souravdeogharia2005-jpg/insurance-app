@@ -134,51 +134,48 @@ app.post('/api/auth/register', async (req, res) => {
 
         const token = jwt.sign({ id: result.insertId, name, email, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
 
-        // Send Welcome Email
+        // Send Welcome Email (non-blocking, with timeout)
         try {
+            const welcomeCtrl = new AbortController();
+            const welcomeTimeout = setTimeout(() => welcomeCtrl.abort(), 25000);
             const welcomeEmailBody = {
                 sender: { name: 'AegisAI Insurance', email: SENDER_EMAIL },
                 to: [{ email: email, name: name }],
-                subject: 'Welcome to AegisAI Insurance!',
+                subject: 'Welcome to AegisAI Insurance! 🛡️',
                 textContent: `Hello ${name}! Welcome to AegisAI. Your registration is complete. Log in to your dashboard to get started.`,
                 htmlContent: `
                     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6;">
                         <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AegisAI, ${name}!</h1>
+                            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AegisAI, ${name}! 🛡️</h1>
                         </div>
                         <div style="padding: 30px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-                            <p style="font-size: 16px;">Thank you for choosing us for your insurance needs. Your registration has been successfully completed.</p>
-                            <p style="font-size: 16px;">With AegisAI, you now have access to our AI-driven risk assessment and customized insurance proposals.</p>
+                            <p style="font-size: 16px;">Thank you for joining AegisAI. Your account has been created successfully.</p>
+                            <p style="font-size: 16px;">With AegisAI, you have access to AI-driven risk assessment and personalized insurance proposals.</p>
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Login to Dashboard</a>
+                                <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">Go to Dashboard →</a>
                             </div>
-                            <p style="font-size: 14px; color: #6b7280;">If you have any questions, feel free to reply to this email.</p>
                             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-                            <p style="font-size: 14px; margin: 0;">Best regards,</p>
-                            <p style="font-size: 16px; font-weight: bold; margin: 0; color: #2563eb;">The AegisAI Team</p>
+                            <p style="font-size: 14px; color: #6b7280; margin: 0;">Best regards, <strong style="color: #2563eb;">The AegisAI Team</strong></p>
                         </div>
                     </div>
                 `
             };
-
             const welcomeRes = await fetch(BREVO_API_URL, {
                 method: 'POST',
-                headers: {
-                    'accept': 'application/json',
-                    'api-key': process.env.BREVO_API_KEY,
-                    'content-type': 'application/json'
-                },
-                body: JSON.stringify(welcomeEmailBody)
+                headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
+                body: JSON.stringify(welcomeEmailBody),
+                signal: welcomeCtrl.signal
             });
-
+            clearTimeout(welcomeTimeout);
             if (welcomeRes.ok) {
-                console.log(`✅ Welcome email successfully sent to ${email} via Brevo`);
+                console.log(`✅ Welcome email sent to ${email}`);
             } else {
                 const errData = await welcomeRes.json();
-                console.error('❌ Brevo Welcome Email API Error:', JSON.stringify(errData));
+                console.error('❌ Welcome Email Error:', JSON.stringify(errData));
             }
-        } catch (error) {
-            console.error('💥 Brevo Welcome Email Network Error:', error.message);
+        } catch (emailErr) {
+            // Non-fatal: user is registered even if email fails
+            console.error('💥 Welcome Email Failed (non-fatal):', emailErr.message);
         }
 
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
@@ -316,9 +313,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
                 `,
             };
 
-            // Add AbortController for fetch timeout
+            // Add AbortController for fetch timeout (25s to handle slow Brevo responses)
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+            const timeout = setTimeout(() => controller.abort(), 25000);
 
             const brevoRes = await fetch(BREVO_API_URL, {
                 method: 'POST',
@@ -335,29 +332,19 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             if (!brevoRes.ok) {
                 const errorData = await brevoRes.json();
                 console.error('❌ Brevo API Response Error:', JSON.stringify(errorData));
-                return res.status(500).json({ error: `Broker Error: ${errorData.message || 'Check API configuration.'}` });
+                return res.status(500).json({ error: `Email service error: ${errorData.message || 'Please try again.'}` });
             }
 
             const successData = await brevoRes.json();
-            console.log(`✅ Success! Password reset accepted by Brevo. ID: ${successData.messageId}`);
+            console.log(`✅ Password reset email sent. Brevo ID: ${successData.messageId}`);
             const passwordHash = await bcrypt.hash(tempPassword, 10);
             await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
 
-            // Restore behavior: Return temporary password in response for immediate feedback
-            res.json({ 
-                message: `Success! New password sent to ${email}.`,
-                tempPassword: tempPassword // Provide on-screen fallback as requested by user
-            });
+            // DO NOT return tempPassword — it is sent securely via email only
+            res.json({ message: `Password reset! Check your inbox at ${email} (including spam folder).` });
         } catch (emailErr) {
-            console.error('💥 Mail/Network Error during reset:', emailErr.message);
-            // Fallback: If email fails, STILL update password and show it on screen so user isn't locked out
-            const passwordHash = await bcrypt.hash(tempPassword, 10);
-            await pool.query('UPDATE users SET password_hash = ? WHERE email = ?', [passwordHash, email]);
-            res.json({ 
-                message: `Email delivery failed, but your password was reset.`,
-                tempPassword: tempPassword,
-                warning: 'Email provider is currently slow. Please note down this password.'
-            });
+            console.error('💥 Forgot password email error:', emailErr.message);
+            return res.status(500).json({ error: 'Failed to send reset email. Please try again in a moment.' });
         }
     } catch (error) {
         console.error('Forgot password internal error:', error.message);
