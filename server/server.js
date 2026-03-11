@@ -53,10 +53,12 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'aegisai_insurance',
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
-    connectionLimit: 20, // Increased for better concurrency
+    connectionLimit: 10,
     queueLimit: 0,
+    connectTimeout: 10000,      // Fail fast: 10s connection timeout
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000
+    keepAliveInitialDelay: 30000,
+    ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false } // Aiven requires SSL
 });
 
 // --- Auth Middleware ---
