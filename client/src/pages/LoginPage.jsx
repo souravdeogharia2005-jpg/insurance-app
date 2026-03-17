@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { API, forgotPassword } from '../utils/api';
 import { languages } from '../i18n/translations';
-import SplitText from '../components/SplitText';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -36,7 +35,7 @@ export default function LoginPage() {
                 if (form.password !== form.confirmPassword) { setError('Passwords do not match'); setLoading(false); clearTimeout(warmingTimer); return; }
                 if (form.password.length < 6) { setError('Password must be at least 6 characters'); setLoading(false); clearTimeout(warmingTimer); return; }
                 await register(form.name, form.email, form.password);
-                setSuccessMsg('Successfully registered and signed in!');
+                setSuccessMsg('Successfully registered! Check your email for a welcome message.');
                 setTimeout(() => navigate('/dashboard'), 1000);
             }
         } catch (err) { setError(err.message); }
@@ -44,8 +43,6 @@ export default function LoginPage() {
         setIsWarming(false);
         clearTimeout(warmingTimer);
     };
-
-
 
     const handleForgotPass = async (e) => {
         e.preventDefault();
@@ -74,164 +71,251 @@ export default function LoginPage() {
     const toggle = () => { setIsLogin(!isLogin); setError(''); setSuccessMsg(''); setForm({ name: '', email: '', password: '', confirmPassword: '' }); };
 
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-white dark:bg-background-dark">
-            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary/5 dark:bg-primary/10">
-                <div className="absolute inset-0 z-10 bg-gradient-to-t from-white/60 dark:from-deep/60 via-transparent to-transparent opacity-80" />
-                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
-                    style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBwtNe3f-rGQFzG0rhSx3j0XRiCTogEZa1Ilu-Iezx6xYD-jjQ4zW1j5GpBwVF_shKVktJtiVXeH-NNk1OJJQdYSekuNS3AhvGkzobqveKzbhCXCBGK55a7r-Lr5mvl38Ytss9laBvM0_nCCas7h5WE6lITIIvx4DLjgEIG7ILV-QaihU0ty5wVSWVPTyKrhs5ArLegrGHfeidfNf_4PIwZDmadhJbaLlr8f9zLahAO6Ev_dHzVCzcAEOjsas9WsvEkQhrOuGVMegQ')" }} />
-                <div className="relative z-20 flex flex-col justify-end p-20 w-full">
-                    <div className="flex items-center gap-3 mb-8 text-primary">
-                        <span className="material-symbols-outlined text-4xl">shield_with_heart</span>
-                        <h2 className="text-2xl font-bold tracking-tight text-deep dark:text-white">AegisAI</h2>
-                    </div>
-                    <SplitText text="Secure Your Family's Future Today" className="text-4xl font-black leading-tight text-deep dark:text-white" tag="h1" delay={40} duration={0.6} from={{ opacity: 0, y: 30 }} to={{ opacity: 1, y: 0 }} />
-                    <p className="text-xl text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed mt-6">
-                        Join over 2 million families who trust AegisAI for comprehensive protection and peace of mind.
-                    </p>
-                    <div className="mt-12 flex gap-4">
-                        <div className="flex -space-x-3">
-                            <img alt="" className="w-10 h-10 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnoKvNvt_rt0v-MhYU7z7bnfKoV4I1HaGxycig2pqZB8JnO_QuxNotfW3Gvkz56Ko6aUWE5cmyX53jlU_I7EgMFTUPuV6e1eQynBb0wraCTyer5yI0BSiuffG4f8N6x9FQHKCRZ2SMAV--_51lySjfE8VR1KIpolb08e2VFfmzSsLPk-po7khwlakA0uRTgnvXKqmuLzfECfEoxB_rmRzyYr31FpDfyV1v5WKgZvLY_mX1yF7K8HFy5CHO9l4Z2-TctV4Brpy3Q0Y" />
-                            <img alt="" className="w-10 h-10 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdpnb3yQpRJL020JU2KK2QX3C65AZTQ7fks67Kirv0wHa2FhV3i9pFoyG6P7fJ8IidDBvgZZ3vwTPOT_t1saoViqBPXDbg2Xj_-319c-NCuWOS3OjXkshrUiYub5zYI5u4bBYgFpAaohGce4FDu4hGRFyGjLPlSK9UtxXOi-rWF9HSC8p2IRfLijrPQQfDAu0SSQqwSj-pCjoVn8_hn9yCd8fqQXfL3zOzUrcXPB_9Hiof3a2YRizwet3vHWQJ1J0cKinh8Vfssfo" />
-                            <img alt="" className="w-10 h-10 rounded-full border-2 border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAugO2_97fKh12KLvcD50BTCpS99TWIXwp_sszET0gPpkrYI3LP63flHhGT7Idw_RVDMmgFu9kV9FLu90KvOfUAMbVOv4c4j8WiUadKoxZKoq8k_YgYnmeryjCJYSDp0q5ESv0IScKTyfq4LPXRWUT1qBAfXl7pnGKnUonHzV91bUOYruXWSlORG3KzQ1sZMflMCYVzJY1ZrDGk777sCwaDQhTwqk_ZAkbRqzWNgqWp-6PGOcldJn2hOUdh9f7ouPOh2XbQ_SlkV-s" />
-                        </div>
-                        <div className="text-sm">
-                            <p className="font-bold text-deep dark:text-white">4.9/5 Rating</p>
-                            <p className="text-slate-500">From 10k+ customer reviews</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+                .login-page { background: radial-gradient(circle at top left, #f8fafc 0%, #f1f5f9 100%); }
+                .glass-main { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.4); }
+                .hero-overlay-gradient { background: linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.85) 100%); }
+                .input-glow:focus-within { box-shadow: 0 0 0 4px rgba(99,102,241,0.1); border-color: #6366F1; }
+                .premium-box-shadow { box-shadow: 0 40px 100px -20px rgba(0,0,0,0.06); }
+                .login-btn-shadow { box-shadow: 0 20px 40px -12px rgba(30,41,59,0.35); }
+                .accent-indigo { color: #6366F1; }
+                .bg-accent-indigo { background: #6366F1; }
+                .noise-texture { background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)" opacity="0.08"/%3E%3C/svg%3E'); }
+            `}</style>
 
-            {/* Right: Form */}
-            <div className="w-full lg:w-1/2 flex flex-col bg-white dark:bg-background-dark overflow-y-auto relative">
+            <div className="login-page min-h-screen flex items-center justify-center p-4 md:p-8 lg:p-12" style={{ fontFamily: "'Inter', sans-serif" }}>
+                <main className="w-full max-w-7xl glass-main rounded-[2rem] md:rounded-[3.5rem] premium-box-shadow overflow-hidden flex flex-col md:flex-row min-h-[85vh]">
 
-                {/* Language Selector */}
-                <div className="absolute top-4 right-4 z-50">
-                    <select
-                        value={language}
-                        onChange={e => setLanguage(e.target.value)}
-                        className="border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-primary shadow-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                    >
-                        {languages.map(l => <option key={l.code} value={l.code}>{l.native}</option>)}
-                    </select>
-                </div>
-                {/* Mobile Carousel */}
-                <div className="lg:hidden">
-                    <div className="flex items-center p-4 pb-2 justify-between">
-                        <div className="text-primary flex items-center justify-start">
-                            <span className="material-symbols-outlined text-[32px]">shield_with_heart</span>
+                    {/* ── LEFT: Form Section ── */}
+                    <section className="w-full md:w-1/2 lg:w-5/12 flex items-center justify-center p-6 sm:p-8 lg:p-16 xl:p-24 bg-white/60 relative">
+                        {/* Language Selector */}
+                        <div className="absolute top-4 right-4 z-50">
+                            <select value={language} onChange={e => setLanguage(e.target.value)}
+                                className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-white/80 text-slate-600 outline-none focus:ring-2 focus:ring-indigo-400 shadow-sm cursor-pointer">
+                                {languages.map(l => <option key={l.code} value={l.code}>{l.native}</option>)}
+                            </select>
                         </div>
-                        <h2 className="text-deep dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-12">AegisAI</h2>
-                    </div>
-                    <div className="flex overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        <div className="flex items-stretch p-4 gap-4">
-                            {[
-                                { img: "https://lh3.googleusercontent.com/aida-public/AB6AXuDzIL_2yNQjNQZDXyw0r-Jm3cjytP5OEkCdPEmGFZXfBD1i7oM7h1mT469bA7kollPx42mTvy6Cfd7_4RfgrRCO6aC06VRgZW98FrwoloLM5sUHtcxDb6WkHEuMupUR0SF70rtF6qxHRYvPmcUfJXszfqx2_iaNYh1S1smedJAcwgYe0DnsJMJ-vvGBL4IkA2e5kDtPzmMKB2O9l_2MGNLWLGXP0jq5lmWC0GSXt6hC2eJoBdjA2Dzjq9cR7fD1yTWvz-bfaDvovHg", title: "Protect what matters", desc: "Tailored plans for your growing family" },
-                                { img: "https://lh3.googleusercontent.com/aida-public/AB6AXuA9IodMOUGQM0V5vUH1OlaTyPjeYvLzukCc03U7FYrdgkRZ7DWOsATvdHX1QYh0RIrwDATR0vTlfH97b9dzf77unA0CQmJvA3PM0wxAbwBMZ6BT3i9w8MQ6064yPzNdvYqahZ8q83ryX2alYZRihOcE5xijFzath8O_1gKE_y1i7c79uh5motAKNUjDHNK_Gp_ulJXRuhcLpKm-mHDtywk7FQFZpb9nthcdQBGKevGCkrxWVIlRAaldAIZn5joayvrEhuG4PpM2EYI", title: "Security you can trust", desc: "Smart coverage for complete peace of mind" },
-                                { img: "https://lh3.googleusercontent.com/aida-public/AB6AXuB_8RfN7SZVhLV490NiYidVugmw4Zucdpaj7faPmvMZ-PedvMwPaVA9z30CqvZ_aRcmoS31xMyA0eXUwJy6MeFps52RrNWr419EwFmWYhj3yVD0tkyAITl_SuYCVtZFc5vS0I4ibMpWd93T7V0TeYwrYW45IRuRwK3WoScX6qch9NEvydrOwwijhxrLY9zenPan1Oajmthc23TZcUlHD4DFMZAydto2c5G9Q6BYkhaFJdmEcrZ12ZHbZ8SRwDE6FB1yrYpolMPT_NQ", title: "Peace of mind 24/7", desc: "Our support team is always just one tap away" },
-                            ].map((s, i) => (
-                                <div key={i} className="flex h-full flex-1 flex-col gap-3 rounded-xl min-w-[280px]">
-                                    <div className="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-xl" style={{ backgroundImage: `url('${s.img}')` }} />
-                                    <div><p className="text-deep dark:text-white text-base font-semibold">{s.title}</p><p className="text-slate-500 text-sm">{s.desc}</p></div>
+
+                        <div className="w-full max-w-md">
+                            {/* Brand Header */}
+                            <div className="mb-10 md:mb-12">
+                                <div className="flex items-center gap-3.5 mb-10 md:mb-12 group cursor-default">
+                                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-xl shadow-slate-200 transition-all duration-500 group-hover:rotate-6">
+                                        <span className="material-symbols-outlined text-2xl">shield_person</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xl md:text-2xl font-extrabold tracking-tight text-slate-900 block leading-none" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>AegisAI</span>
+                                        <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Insurance Group</span>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                                <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-2 tracking-tight leading-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                    {isLogin ? t('welcomeBack') : t('createAccount')}
+                                </h1>
+                                <p className="text-slate-500 font-medium text-sm md:text-base">
+                                    {isLogin ? 'Access your secure protection dashboard.' : 'Create your AegisAI insurance account.'}
+                                </p>
+                            </div>
 
-                {/* Form */}
-                <div className="flex-1 flex items-center justify-center p-8 sm:p-12 lg:p-24">
-                    <div className="w-full max-w-md space-y-8">
-                        <div className="space-y-2">
-                            <h2 className="text-3xl font-black text-deep dark:text-white">{isLogin ? t('welcomeBack') : t('createAccount')}</h2>
-                            <p className="text-slate-500">{isLogin ? 'Please enter your details to access your account.' : 'Create your AegisAI insurance account.'}</p>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="space-y-4">
+                            {/* Form */}
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                {/* Name (Sign Up only) */}
                                 {!isLogin && (
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('fullName')}</label>
-                                        <div className="relative">
-                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">person</span>
-                                            <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-deep dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">{t('fullName')}</label>
+                                        <div className="relative flex items-center group">
+                                            <span className="material-symbols-outlined absolute left-4 text-slate-400 transition-colors group-focus-within:text-indigo-500 text-xl">person</span>
+                                            <input className="w-full pl-12 pr-5 py-4 rounded-2xl bg-white border border-slate-200 text-slate-800 placeholder-slate-300 transition-all duration-300 outline-none focus:ring-0 input-glow text-sm"
                                                 placeholder="John Doe" type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
                                         </div>
                                     </div>
                                 )}
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('email')}</label>
-                                    <div className="relative">
-                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
-                                        <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-deep dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+
+                                {/* Email */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">{t('email')}</label>
+                                    <div className="relative flex items-center group">
+                                        <span className="material-symbols-outlined absolute left-4 text-slate-400 transition-colors group-focus-within:text-indigo-500 text-xl">mail</span>
+                                        <input className="w-full pl-12 pr-5 py-4 rounded-2xl bg-white border border-slate-200 text-slate-800 placeholder-slate-300 transition-all duration-300 outline-none focus:ring-0 input-glow text-sm"
                                             placeholder="name@company.com" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center">
-                                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('password')}</label>
+
+                                {/* Password */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between ml-1">
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">{t('password')}</label>
                                         {isLogin && (
-                                            <button 
-                                                type="button" 
-                                                onClick={handleForgotPass} 
-                                                disabled={resetLoading}
-                                                className="text-xs font-bold text-primary hover:underline disabled:opacity-50 flex items-center gap-1"
-                                            >
-                                                {resetLoading && <span className="w-2 h-2 border border-primary border-t-transparent rounded-full animate-spin" />}
-                                                {resetLoading ? 'Resetting...' : 'Forgot Password?'}
+                                            <button type="button" onClick={handleForgotPass} disabled={resetLoading}
+                                                className="text-[11px] font-bold accent-indigo hover:text-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1">
+                                                {resetLoading && <span className="w-2 h-2 border border-indigo-500 border-t-transparent rounded-full animate-spin" />}
+                                                {resetLoading ? 'Resetting...' : 'Forgot password?'}
                                             </button>
                                         )}
                                     </div>
-                                    <div className="relative">
-                                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
-                                        <input className="w-full pl-12 pr-12 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-deep dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                    <div className="relative flex items-center group">
+                                        <span className="material-symbols-outlined absolute left-4 text-slate-400 transition-colors group-focus-within:text-indigo-500 text-xl">lock_open</span>
+                                        <input className="w-full pl-12 pr-12 py-4 rounded-2xl bg-white border border-slate-200 text-slate-800 placeholder-slate-300 transition-all duration-300 outline-none focus:ring-0 input-glow text-sm"
                                             placeholder="••••••••" type={showPass ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required />
-                                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors">
-                                            <span className="material-symbols-outlined">{showPass ? 'visibility_off' : 'visibility'}</span>
+                                        <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 text-slate-400 hover:text-indigo-500 transition-colors">
+                                            <span className="material-symbols-outlined text-xl">{showPass ? 'visibility_off' : 'visibility'}</span>
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Confirm Password (Sign Up only) */}
                                 {!isLogin && (
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('confirmPassword')}</label>
-                                        <div className="relative">
-                                            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
-                                            <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-deep dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                                    <div className="space-y-1.5">
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">{t('confirmPassword')}</label>
+                                        <div className="relative flex items-center group">
+                                            <span className="material-symbols-outlined absolute left-4 text-slate-400 transition-colors group-focus-within:text-indigo-500 text-xl">lock</span>
+                                            <input className="w-full pl-12 pr-5 py-4 rounded-2xl bg-white border border-slate-200 text-slate-800 placeholder-slate-300 transition-all duration-300 outline-none focus:ring-0 input-glow text-sm"
                                                 placeholder="••••••••" type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })} required />
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                            {isLogin && (
-                                <div className="flex items-center gap-2">
-                                    <input className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary" id="remember" type="checkbox" />
-                                    <label className="text-sm text-slate-500" htmlFor="remember">Remember me for 30 days</label>
-                                </div>
-                            )}
-                            {isWarming && (loading || resetLoading) && !error && (
-                                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-3 rounded-lg flex items-start gap-2 animate-pulse">
-                                    <span className="material-symbols-outlined text-sm mt-0.5 animate-spin">sync</span> 
-                                    <span>Server is starting up (Free Tier cold-start). This may take up to 60 seconds. Please wait...</span>
-                                </div>
-                            )}
-                            {error && <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 p-3 rounded-lg flex items-start gap-2"><span className="material-symbols-outlined text-sm mt-0.5">error</span> {error}</div>}
-                            {successMsg && <div className="text-sm text-green-600 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 p-3 rounded-lg flex items-start gap-2"><span className="material-symbols-outlined text-sm mt-0.5">check_circle</span> {successMsg}</div>}
-                            <button type="submit" disabled={loading} className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
-                                {loading ? <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="material-symbols-outlined">{isLogin ? 'login' : 'person_add'}</span>{isLogin ? t('signIn') : t('signUp')}</>}
-                            </button>
 
-                        </form>
-                        <p className="text-slate-500">
-                            {isLogin ? t('noAccount') : t('hasAccount')}{' '}
-                            <button onClick={toggle} className="text-primary font-bold hover:underline">{isLogin ? t('signUp') : t('signIn')}</button>
-                        </p>
-                        <div className="pt-8 flex justify-center gap-6 text-xs text-slate-400 font-medium uppercase tracking-widest">
-                            <a className="hover:text-primary transition-colors" href="#">Help Center</a>
-                            <a className="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-                            <a className="hover:text-primary transition-colors" href="#">Terms of Service</a>
+                                {/* Remember Me */}
+                                {isLogin && (
+                                    <div className="flex items-center px-1">
+                                        <input className="h-5 w-5 text-indigo-500 focus:ring-indigo-200 border-slate-200 rounded-md transition-all cursor-pointer" id="remember_me" type="checkbox" />
+                                        <label className="ml-3 block text-sm font-semibold text-slate-600 cursor-pointer select-none" htmlFor="remember_me">Keep me logged in</label>
+                                    </div>
+                                )}
+
+                                {/* Server Warming Message */}
+                                {isWarming && (loading || resetLoading) && !error && (
+                                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-start gap-2 animate-pulse">
+                                        <span className="material-symbols-outlined text-sm mt-0.5 animate-spin">sync</span>
+                                        <span>Server is starting up (Free Tier cold-start). This may take up to 60 seconds. Please wait...</span>
+                                    </div>
+                                )}
+
+                                {/* Error */}
+                                {error && (
+                                    <div className="text-xs text-red-600 bg-red-50 border border-red-200 p-3 rounded-2xl flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-sm mt-0.5">error</span> {error}
+                                    </div>
+                                )}
+
+                                {/* Success */}
+                                {successMsg && (
+                                    <div className="text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-sm mt-0.5">check_circle</span> {successMsg}
+                                    </div>
+                                )}
+
+                                {/* Submit Button */}
+                                <button type="submit" disabled={loading}
+                                    className="w-full bg-slate-900 text-white font-bold py-4 md:py-5 rounded-2xl hover:bg-slate-800 active:scale-[0.99] transition-all duration-300 login-btn-shadow flex items-center justify-center gap-2 group disabled:opacity-50">
+                                    {loading ? (
+                                        <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <>
+                                            <span>{isLogin ? t('signIn') : t('signUp')}</span>
+                                            <span className="material-symbols-outlined text-xl transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+
+                            {/* Footer */}
+                            <div className="mt-10 md:mt-12 text-center">
+                                <p className="text-sm font-medium text-slate-400">
+                                    {isLogin ? t('noAccount') : t('hasAccount')}{' '}
+                                    <button onClick={toggle} className="accent-indigo font-bold hover:underline underline-offset-8 decoration-2">
+                                        {isLogin ? t('signUp') : t('signIn')}
+                                    </button>
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </section>
+
+                    {/* ── RIGHT: Hero Section (hidden on mobile) ── */}
+                    <section className="hidden md:flex md:w-1/2 lg:w-7/12 relative p-5">
+                        <div className="w-full h-full rounded-[2rem] md:rounded-[3rem] overflow-hidden relative shadow-2xl">
+                            {/* Background Image */}
+                            <img alt="Happy family representing insurance protection"
+                                className="absolute inset-0 w-full h-full object-cover scale-105"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAarM9rvcZuNUjB64IbhvJSaRIcHkZBylL2V3cgE7GKq_qA0Oz-VgadP72yxxGN38Ha02A4Oi2LUvB713pbWbUyB0P-Qvgx8E2DO2P4YvdS6Y5qF60ma_iUzeNQB3X_97Muy3EGc5wea1ijaI_RB-AlKAtPA_hmycjGnPBn6TnzDqzPb82JUiPWJpZGJ95ifbU6WfnddAa8tXc08Tx5CzuXfSa2e-HyjwEZx7FDX3nZIjWc4mgjRbYsREjSuS2ctJwI4dEVjAb6bj2v" />
+
+                            {/* Overlay */}
+                            <div className="absolute inset-0 bg-slate-900/10 mix-blend-multiply" />
+                            <div className="absolute inset-0 hero-overlay-gradient" />
+
+                            {/* Floating Badge */}
+                            <div className="absolute top-8 right-8 z-20">
+                                <div className="bg-white/10 backdrop-blur-xl px-4 py-2 rounded-full flex items-center gap-2.5 border border-white/20">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)] animate-pulse" />
+                                    <span className="text-[9px] font-extrabold text-white uppercase tracking-[0.2em]">Secure Encryption Active</span>
+                                </div>
+                            </div>
+
+                            {/* Hero Content */}
+                            <div className="absolute bottom-10 lg:bottom-16 left-8 lg:left-16 z-20 text-white max-w-lg">
+                                <div className="w-14 h-1.5 bg-indigo-500 mb-8 lg:mb-10 rounded-full shadow-lg shadow-indigo-500/50" />
+                                <h2 className="text-3xl lg:text-5xl xl:text-6xl font-extrabold leading-[1.08] mb-6 lg:mb-8 tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                                    Modern Protection <br />
+                                    <span className="font-normal opacity-90 italic">for your legacy.</span>
+                                </h2>
+                                <p className="text-white/80 text-base lg:text-xl font-medium leading-relaxed max-w-md">
+                                    Join over 2 million families who trust AegisAI to safeguard their most valuable moments.
+                                </p>
+                                <div className="mt-8 lg:mt-12 flex gap-8 items-center border-t border-white/10 pt-6 lg:pt-8">
+                                    <div>
+                                        <p className="text-xl lg:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>A+</p>
+                                        <p className="text-[9px] lg:text-[10px] uppercase tracking-widest text-white/50 font-bold">Rating</p>
+                                    </div>
+                                    <div className="w-px h-8 bg-white/20" />
+                                    <div>
+                                        <p className="text-xl lg:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>24/7</p>
+                                        <p className="text-[9px] lg:text-[10px] uppercase tracking-widest text-white/50 font-bold">Support</p>
+                                    </div>
+                                    <div className="w-px h-8 bg-white/20" />
+                                    <div>
+                                        <p className="text-xl lg:text-2xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>2M+</p>
+                                        <p className="text-[9px] lg:text-[10px] uppercase tracking-widest text-white/50 font-bold">Families</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Noise texture overlay */}
+                            <div className="absolute inset-0 pointer-events-none opacity-[0.1] mix-blend-overlay noise-texture" />
+                        </div>
+                    </section>
+
+                    {/* ── MOBILE: Compact Hero (visible only on mobile) ── */}
+                    <section className="md:hidden bg-slate-900 p-6 text-center relative overflow-hidden">
+                        <div className="absolute inset-0 opacity-20"
+                            style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAarM9rvcZuNUjB64IbhvJSaRIcHkZBylL2V3cgE7GKq_qA0Oz-VgadP72yxxGN38Ha02A4Oi2LUvB713pbWbUyB0P-Qvgx8E2DO2P4YvdS6Y5qF60ma_iUzeNQB3X_97Muy3EGc5wea1ijaI_RB-AlKAtPA_hmycjGnPBn6TnzDqzPb82JUiPWJpZGJ95ifbU6WfnddAa8tXc08Tx5CzuXfSa2e-HyjwEZx7FDX3nZIjWc4mgjRbYsREjSuS2ctJwI4dEVjAb6bj2v')", backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                        <div className="relative z-10">
+                            <div className="flex justify-center gap-6 items-center">
+                                <div>
+                                    <p className="text-lg font-bold text-white">A+</p>
+                                    <p className="text-[8px] uppercase tracking-widest text-white/50 font-bold">Rating</p>
+                                </div>
+                                <div className="w-px h-6 bg-white/20" />
+                                <div>
+                                    <p className="text-lg font-bold text-white">24/7</p>
+                                    <p className="text-[8px] uppercase tracking-widest text-white/50 font-bold">Support</p>
+                                </div>
+                                <div className="w-px h-6 bg-white/20" />
+                                <div>
+                                    <p className="text-lg font-bold text-white">2M+</p>
+                                    <p className="text-[8px] uppercase tracking-widest text-white/50 font-bold">Families</p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex justify-center">
+                                <div className="bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span className="text-[8px] font-bold text-white/80 uppercase tracking-wider">Secure Encryption Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </main>
             </div>
-        </div>
+        </>
     );
 }
