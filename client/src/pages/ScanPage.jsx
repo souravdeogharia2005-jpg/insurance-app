@@ -1,636 +1,556 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { createProposal } from '../utils/api';
 import { calculateEMR, getRiskClass, calculatePremium } from '../utils/emr';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanLine, Upload, Camera, FileText, CheckCircle, Loader, Edit2, Save, AlertTriangle, IndianRupee, Shield, Activity, Heart } from 'lucide-react';
+import { ScanLine, Upload, Camera, CheckCircle, Loader, Activity, Shield, AlertTriangle, FileText, ChevronRight, ChevronLeft } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 
-// ── Smart OCR parser for the AegisAI Proposal Form ──
-function parseProposalForm(rawText) {
-    const text = rawText.replace(/\r/g, '');
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const lowerLines = lines.map(l => l.toLowerCase());
+// ── The actual conditions & habits from the proposal form ──
+const HEALTH_CONDITIONS = [
+    { key: 'thyroid', label: 'Thyroid', mapped: 'respiratory' },
+    { key: 'asthma', label: 'Asthma', mapped: 'respiratory' },
+    { key: 'hypertension', label: 'Hypertension', mapped: 'hypertension' },
+    { key: 'diabetes', label: 'Diabetes Mellitus', mapped: 'diabetes' },
+    { key: 'gut_disorder', label: 'Gut Disorder', mapped: 'liver' },
+];
+const SEVERITY_LEVELS = [
+    { value: 0, label: 'None' },
+    { value: 1, label: 'Level 1 – Borderline (no medicine)' },
+    { value: 2, label: 'Level 2 – Basic medicines' },
+    { value: 3, label: 'Level 3 – Middle dose medication' },
+    { value: 4, label: 'Level 4 – Very high dose medication' },
+];
+const HABIT_OPTIONS = [
+    { value: 'never', label: 'Never' },
+    { value: 'occasional', label: 'Occasionally' },
+    { value: 'moderate', label: 'Regular (moderate)' },
+    { value: 'heavy', label: 'Regular (high dose)' },
+];
+const OCCUPATION_OPTIONS = [
+    { value: 'desk_job', label: 'Desk Job / Office / IT / Teacher' },
+    { value: 'light_manual', label: 'Light Manual Work' },
+    { value: 'moderate_physical', label: 'Moderate Physical (Farmer, etc.)' },
+    { value: 'heavy_manual', label: 'Heavy Manual (Construction, Driver)' },
+    { value: 'hazardous', label: 'Hazardous (Mining, Oil & Gas)' },
+    { value: 'extreme_risk', label: 'Extreme Risk (Pilot, Athlete, Navy)' },
+];
+const FAMILY_OPTIONS = [
+    { value: 'alive_healthy', label: 'Both Surviving (age > 65)' },
+    { value: 'deceased_after_60', label: 'Only One Surviving (age > 65)' },
+    { value: 'deceased_before_60', label: 'Both Died (age < 65)' },
+];
 
-    const data = {
-        name: '', age: '', gender: '', dob: '', residence: '',
-        profession: '', height: '', weight: '', bmi: '',
-        income: '', incomeSource: '',
-        lifeCover: 0, cirCover: 0, accidentCover: 0,
-        fatherStatus: 'alive_healthy', motherStatus: 'alive_healthy',
-        conditions: [], severities: {},
-        smoking: 'never', alcohol: 'never', tobacco: 'never',
-        occupation: 'desk_job',
-    };
-
-    // ── Helper: extract value after a label on the same line ──
-    const extractAfterLabel = (label) => {
-        for (let i = 0; i < lines.length; i++) {
-            const low = lowerLines[i];
-            if (low.includes(label.toLowerCase())) {
-                // Try "Label: Value" or "Label  Value" format
-                const colonIdx = lines[i].indexOf(':');
-                if (colonIdx !== -1) {
-                    const val = lines[i].substring(colonIdx + 1).trim();
-                    if (val.length > 0) return val;
-                }
-                // Try tab/space separated: take everything after the label
-                const labelIdx = low.indexOf(label.toLowerCase());
-                const afterLabel = lines[i].substring(labelIdx + label.length).trim();
-                if (afterLabel.length > 1 && afterLabel !== '|' && !afterLabel.startsWith('(')) return afterLabel;
-                // Try next line
-                if (i + 1 < lines.length && lines[i + 1].length > 1 && !lines[i + 1].toLowerCase().includes('gender') && !lines[i + 1].toLowerCase().includes('place')) {
-                    return lines[i + 1].trim();
-                }
-            }
-        }
-        return '';
-    };
-
-    // Name
-    const rawName = extractAfterLabel('Name');
-    if (rawName) {
-        data.name = rawName.replace(/[^a-zA-Z\s.]/g, '').trim()
-            .split(' ').filter(w => w.length > 0)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-    }
-
-    // Gender
-    const rawGender = extractAfterLabel('Gender');
-    if (rawGender) {
-        const g = rawGender.toLowerCase();
-        if (g.includes('female') || g.includes('f')) data.gender = 'female';
-        else if (g.includes('male') || g.includes('m')) data.gender = 'male';
-        else data.gender = 'other';
-    }
-
-    // Place of Residence
-    const rawRes = extractAfterLabel('Place of Residence') || extractAfterLabel('Residence');
-    if (rawRes) {
-        const r = rawRes.toLowerCase();
-        if (r.includes('urban') || r.includes('city') || r.includes('metro')) data.residence = 'urban';
-        else if (r.includes('rural') || r.includes('village')) data.residence = 'rural';
-        else data.residence = rawRes.replace(/[^a-zA-Z\s]/g, '').trim();
-    }
-
-    // Date of Birth
-    const rawDob = extractAfterLabel('Date of Birth') || extractAfterLabel('DOB');
-    if (rawDob) {
-        const m = rawDob.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
-        if (m) {
-            const year = m[3].length === 2 ? '20' + m[3] : m[3];
-            data.dob = `${year}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-            // Calculate age
-            const birthDate = new Date(data.dob);
-            const today = new Date();
-            data.age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
-        }
-    }
-
-    // Direct age extraction if DOB didn't yield one
-    if (!data.age) {
-        const rawAge = extractAfterLabel('Age');
-        if (rawAge) {
-            const ageNum = rawAge.match(/(\d+)/);
-            if (ageNum) data.age = parseInt(ageNum[1], 10);
-        }
-    }
-
-    // Profession
-    const rawProf = extractAfterLabel('Profession');
-    if (rawProf) data.profession = rawProf.replace(/[^a-zA-Z\s]/g, '').trim();
-
-    // Height (cm)
-    const rawHeight = extractAfterLabel('Height');
-    if (rawHeight) {
-        const h = rawHeight.match(/(\d+)/);
-        if (h) data.height = parseInt(h[1], 10);
-    }
-
-    // Weight (kg)
-    const rawWeight = extractAfterLabel('Weight');
-    if (rawWeight) {
-        const w = rawWeight.match(/(\d+)/);
-        if (w) data.weight = parseInt(w[1], 10);
-    }
-
-    // BMI
-    if (data.height && data.weight) {
-        const hm = data.height / 100;
-        data.bmi = parseFloat((data.weight / (hm * hm)).toFixed(1));
-    }
-
-    // Yearly Income
-    const rawIncome = extractAfterLabel('Yearly Income') || extractAfterLabel('Income') || extractAfterLabel('Annual Income');
-    if (rawIncome) {
-        const inc = rawIncome.replace(/[^0-9]/g, '');
-        if (inc) data.income = inc;
-    }
-
-    // Source of Income
-    const rawSrc = extractAfterLabel('Source of Income') || extractAfterLabel('Income Source');
-    if (rawSrc) data.incomeSource = rawSrc.replace(/[^a-zA-Z\s]/g, '').trim();
-
-    // Cover amounts
-    const rawBase = extractAfterLabel('Base cover') || extractAfterLabel('Life Cover') || extractAfterLabel('Base Cover Required');
-    if (rawBase) { const v = rawBase.replace(/[^0-9]/g, ''); if (v) data.lifeCover = parseInt(v, 10); }
-
-    const rawCir = extractAfterLabel('CIR cover') || extractAfterLabel('Critical Illness') || extractAfterLabel('CIR Cover Required');
-    if (rawCir) { const v = rawCir.replace(/[^0-9]/g, ''); if (v) data.cirCover = parseInt(v, 10); }
-
-    const rawAcc = extractAfterLabel('Accident cover') || extractAfterLabel('Accident Cover Required');
-    if (rawAcc) { const v = rawAcc.replace(/[^0-9]/g, ''); if (v) data.accidentCover = parseInt(v, 10); }
-
-    // ── Health Conditions ──
-    const conditionMap = {
-        'thyroid': 'respiratory', 'asthma': 'respiratory',
-        'hyper tension': 'hypertension', 'hypertension': 'hypertension',
-        'diabetes': 'diabetes', 'diabetes mellitus': 'diabetes',
-        'gut disorder': 'liver', 'heart': 'heart_disease',
-        'cancer': 'cancer', 'kidney': 'kidney', 'neurological': 'neurological',
-    };
-
-    for (const [keyword, condition] of Object.entries(conditionMap)) {
-        for (let i = 0; i < lowerLines.length; i++) {
-            if (lowerLines[i].includes(keyword)) {
-                // Check if there's a tick/mark/x/severity on the same line after the condition name
-                const afterKeyword = lowerLines[i].substring(lowerLines[i].indexOf(keyword) + keyword.length);
-                const hasMark = /[x✓✔√1-4]/.test(afterKeyword) || afterKeyword.includes('yes') || afterKeyword.includes('level');
-                if (hasMark && !data.conditions.includes(condition)) {
-                    data.conditions.push(condition);
-                    // Try to detect severity level (1-4)
-                    const sevMatch = afterKeyword.match(/[1-4]/);
-                    if (sevMatch) data.severities[condition] = parseInt(sevMatch[0], 10);
-                    else data.severities[condition] = 1;
-                }
-            }
-        }
-    }
-
-    // ── Personal Habits ──
-    const habitMap = { 'smoking': 'smoking', 'alcoholic': 'alcohol', 'alcohol': 'alcohol', 'tobacco': 'tobacco' };
-    const frequencyMap = { 'occasionally': 'occasional', 'regular': 'regular', 'moderate': 'moderate', 'high': 'heavy', 'never': 'never', 'social': 'social' };
-
-    for (const [keyword, field] of Object.entries(habitMap)) {
-        for (let i = 0; i < lowerLines.length; i++) {
-            if (lowerLines[i].includes(keyword) && !lowerLines[i].includes('consumption') && !lowerLines[i].includes('please tick')) {
-                const lineAfter = lowerLines[i].substring(lowerLines[i].indexOf(keyword) + keyword.length);
-                for (const [freq, val] of Object.entries(frequencyMap)) {
-                    if (lineAfter.includes(freq)) { data[field] = val; break; }
-                }
-                // Also check next line
-                if (i + 1 < lowerLines.length) {
-                    for (const [freq, val] of Object.entries(frequencyMap)) {
-                        if (lowerLines[i + 1].includes(freq)) { data[field] = val; break; }
-                    }
-                }
-            }
-        }
-    }
-
-    // ── Family History ──
-    for (let i = 0; i < lowerLines.length; i++) {
-        if (lowerLines[i].includes('survival') || lowerLines[i].includes('parent')) {
-            const lineText = lowerLines[i] + ' ' + (lowerLines[i + 1] || '');
-            if (lineText.includes('both died') || lineText.includes('died < 65') || lineText.includes('died before')) {
-                data.fatherStatus = 'deceased_before_60';
-                data.motherStatus = 'deceased_before_60';
-            } else if (lineText.includes('one surviving')) {
-                data.fatherStatus = 'alive_healthy';
-                data.motherStatus = 'deceased_after_60';
-            } else if (lineText.includes('both surviving') || lineText.includes('both alive')) {
-                data.fatherStatus = 'alive_healthy';
-                data.motherStatus = 'alive_healthy';
-            }
-        }
-    }
-
-    // ── Occupation mapping ──
-    if (data.profession) {
-        const p = data.profession.toLowerCase();
-        if (p.includes('desk') || p.includes('office') || p.includes('it') || p.includes('software') || p.includes('salaried') || p.includes('teacher') || p.includes('doctor')) {
-            data.occupation = 'desk_job';
-        } else if (p.includes('driver') || p.includes('factory') || p.includes('construction') || p.includes('mining')) {
-            data.occupation = 'heavy_manual';
-        } else if (p.includes('farmer') || p.includes('labour') || p.includes('labor')) {
-            data.occupation = 'moderate_physical';
-        } else {
-            data.occupation = 'light_manual';
-        }
-    }
-
-    return data;
-}
-
+const INITIAL_FORM = {
+    name: '', gender: 'male', residence: '', dob: '', profession: '',
+    height: '', weight: '', income: '', incomeSource: '',
+    lifeCover: '', cirCover: '', accidentCover: '',
+    parentStatus: 'alive_healthy',
+    thyroid: 0, asthma: 0, hypertension: 0, diabetes: 0, gut_disorder: 0,
+    smoking: 'never', alcohol: 'never', tobacco: 'never',
+    occupation: 'desk_job',
+};
 
 export default function ScanPage() {
     const { t, fc } = useApp();
     const navigate = useNavigate();
     const inputRef = useRef(null);
     const cameraRef = useRef(null);
-    const [stage, setStage] = useState('upload'); // upload | processing | done
-    const [extracted, setExtracted] = useState(null);
-    const [editing, setEditing] = useState(false);
+    const canvasRef = useRef(null);
+
+    const [mode, setMode] = useState('form'); // 'form' | 'scanning' | 'scanned'
+    const [form, setForm] = useState({ ...INITIAL_FORM });
+    const [step, setStep] = useState(0); // 0-4 form steps
     const [scanProgress, setScanProgress] = useState(0);
-    const [rawOcrText, setRawOcrText] = useState('');
-    const [premiumData, setPremiumData] = useState(null);
-    const [riskData, setRiskData] = useState(null);
-    const [emrData, setEmrData] = useState(null);
     const [creating, setCreating] = useState(false);
+    const [ocrLog, setOcrLog] = useState('');
 
-    const recalcPremium = (d) => {
-        const emr = calculateEMR({
-            fatherStatus: d.fatherStatus || 'alive_healthy',
-            motherStatus: d.motherStatus || 'alive_healthy',
-            conditions: d.conditions || [],
-            severities: d.severities || {},
-            smoking: d.smoking || 'never',
-            alcohol: d.alcohol || 'never',
-            tobacco: d.tobacco || 'never',
-            occupation: d.occupation || 'desk_job',
-        });
-        const rc = getRiskClass(emr.totalEMR);
-        const prem = calculatePremium({
-            lifeCover: parseFloat(d.lifeCover) || 0,
-            cirCover: parseFloat(d.cirCover) || 0,
-            accidentCover: parseFloat(d.accidentCover) || 0,
-        }, emr.totalEMR);
-        setEmrData(emr);
-        setRiskData(rc);
-        setPremiumData(prem);
-    };
+    // ── Derived calculations (auto-update on any form change) ──
+    const age = (() => {
+        if (!form.dob) return '';
+        const b = new Date(form.dob);
+        return Math.floor((Date.now() - b.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    })();
 
-    const handleFile = async (file) => {
+    const bmi = (() => {
+        if (!form.height || !form.weight) return '';
+        const hm = parseFloat(form.height) / 100;
+        return hm > 0 ? (parseFloat(form.weight) / (hm * hm)).toFixed(1) : '';
+    })();
+
+    const conditions = HEALTH_CONDITIONS.filter(c => form[c.key] > 0).map(c => c.mapped);
+    const severities = {};
+    HEALTH_CONDITIONS.forEach(c => { if (form[c.key] > 0) severities[c.mapped] = form[c.key]; });
+
+    const emrResult = calculateEMR({
+        fatherStatus: form.parentStatus, motherStatus: form.parentStatus,
+        conditions, severities,
+        smoking: form.smoking, alcohol: form.alcohol, tobacco: form.tobacco,
+        occupation: form.occupation,
+    });
+    const riskResult = getRiskClass(emrResult.totalEMR);
+    const premResult = calculatePremium({
+        lifeCover: parseFloat(form.lifeCover) || 0,
+        cirCover: parseFloat(form.cirCover) || 0,
+        accidentCover: parseFloat(form.accidentCover) || 0,
+    }, emrResult.totalEMR);
+
+    const updateForm = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    // ── Smart OCR: crop RIGHT side of form to read values only ──
+    const handleScanFile = async (file) => {
         if (!file) return;
-        setStage('processing');
+        setMode('scanning');
         setScanProgress(0);
+        setOcrLog('');
 
         try {
-            const result = await Tesseract.recognize(file, 'eng', {
+            // Load image
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = url;
+            });
+
+            // Crop RIGHT half (where user fills values)
+            const canvas = canvasRef.current || document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const cropX = Math.floor(img.width * 0.4); // Start from 40% to get the values column
+            canvas.width = img.width - cropX;
+            canvas.height = img.height;
+            ctx.drawImage(img, cropX, 0, canvas.width, img.height, 0, 0, canvas.width, img.height);
+            URL.revokeObjectURL(url);
+
+            // Run OCR on cropped right-side
+            const result = await Tesseract.recognize(canvas, 'eng', {
                 logger: m => {
-                    if (m.status === 'recognizing text') {
-                        setScanProgress(Math.floor(m.progress * 100));
-                    }
+                    if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100));
                 }
             });
-            const ocrText = result.data.text;
-            setRawOcrText(ocrText);
-            console.log('📄 RAW OCR TEXT:\n', ocrText);
 
-            const d = parseProposalForm(ocrText);
-            setExtracted(d);
-            recalcPremium(d);
-            setStage('done');
+            const rawText = result.data.text;
+            setOcrLog(rawText);
+            console.log('📄 CROPPED OCR TEXT:\n', rawText);
+
+            // Extract values line by line (skip empty and known labels)
+            const labelWords = ['name', 'gender', 'place', 'residence', 'date', 'birth', 'profession',
+                'height', 'weight', 'yearly', 'income', 'source', 'base', 'cover', 'required',
+                'cir', 'accident', 'family', 'history', 'parent', 'health', 'condition',
+                'severity', 'level', 'personal', 'habit', 'consumption', 'proposal', 'form',
+                'tick', 'status', 'remark', 'borderline', 'managing', 'medicine', 'basic',
+                'middle', 'dose', 'medication', 'very', 'high', 'thyroid', 'asthma',
+                'hyper', 'tension', 'diabetes', 'mellitus', 'gut', 'disorder', 'smoking',
+                'alcoholic', 'drinks', 'tobacco', 'occasionally', 'regular', 'moderate',
+                'surviving', 'died', 'ignore', 'accidental', 'death', 'both', 'only', 'one'];
+
+            const cleanLines = rawText.split('\n')
+                .map(l => l.trim())
+                .filter(l => {
+                    if (l.length < 2) return false;
+                    const lower = l.toLowerCase();
+                    // Skip lines that are purely label words
+                    const words = lower.split(/\s+/);
+                    const allLabels = words.every(w => labelWords.includes(w) || w.length < 2);
+                    return !allLabels;
+                });
+
+            console.log('🔍 CLEANED VALUES:', cleanLines);
+
+            // Try to map cleaned values to form fields in order
+            if (cleanLines.length > 0) {
+                const updates = {};
+                cleanLines.forEach(line => {
+                    // Try to detect dates
+                    const dateMatch = line.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+                    if (dateMatch && !updates.dob) {
+                        const yr = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
+                        updates.dob = `${yr}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
+                        return;
+                    }
+                    // Try to detect pure numbers (income, height, weight, cover)
+                    const numMatch = line.replace(/[,\s₹]/g, '').match(/^(\d+)$/);
+                    if (numMatch) {
+                        const n = parseInt(numMatch[1]);
+                        if (n > 100000 && !updates.income) { updates.income = n.toString(); return; }
+                        if (n >= 100 && n <= 250 && !updates.height) { updates.height = n.toString(); return; }
+                        if (n >= 30 && n <= 200 && !updates.weight) { updates.weight = n.toString(); return; }
+                        if (n > 200 && !updates.lifeCover) { updates.lifeCover = n.toString(); return; }
+                    }
+                    // Try to detect gender
+                    const gLow = line.toLowerCase();
+                    if ((gLow === 'male' || gLow === 'female' || gLow === 'other') && !updates.gender) {
+                        updates.gender = gLow; return;
+                    }
+                    // Otherwise treat as name if it looks like text
+                    if (/^[a-zA-Z\s.]+$/.test(line) && line.length > 2 && !updates.name) {
+                        updates.name = line.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                    }
+                });
+
+                setForm(prev => ({ ...prev, ...updates }));
+            }
+
+            setMode('scanned');
         } catch (error) {
-            console.error("OCR Failed:", error);
-            setStage('upload');
-            alert('OCR scanning failed. Please try again with a clearer image.');
+            console.error('OCR Failed:', error);
+            alert('Scan failed. Please try a clearer image or fill the form manually.');
+            setMode('form');
         }
     };
 
-    const handleDrop = (e) => { e.preventDefault(); handleFile(e.dataTransfer.files[0]); };
-    const handleDragOver = (e) => { e.preventDefault(); };
-
-    const updateField = (field, value) => {
-        const updated = { ...extracted, [field]: value };
-        // Recalculate BMI if height or weight changed
-        if ((field === 'height' || field === 'weight') && updated.height && updated.weight) {
-            const hm = parseFloat(updated.height) / 100;
-            if (hm > 0) updated.bmi = parseFloat((parseFloat(updated.weight) / (hm * hm)).toFixed(1));
-        }
-        setExtracted(updated);
-        recalcPremium(updated);
-    };
-
+    // ── Create proposal ──
     const handleCreate = async () => {
-        if (!extracted) return;
+        if (!form.name) { alert('Please enter a name'); return; }
         setCreating(true);
         try {
-            const d = extracted;
-            const emr = calculateEMR({
-                fatherStatus: d.fatherStatus || 'alive_healthy',
-                motherStatus: d.motherStatus || 'alive_healthy',
-                conditions: d.conditions || [],
-                severities: d.severities || {},
-                smoking: d.smoking || 'never',
-                alcohol: d.alcohol || 'never',
-                tobacco: d.tobacco || 'never',
-                occupation: d.occupation || 'desk_job',
-            });
-            const rc = getRiskClass(emr.totalEMR);
-            const prem = calculatePremium({
-                lifeCover: parseFloat(d.lifeCover) || 0,
-                cirCover: parseFloat(d.cirCover) || 0,
-                accidentCover: parseFloat(d.accidentCover) || 0,
-            }, emr.totalEMR);
-
             await createProposal({
-                ...d,
-                emrScore: emr.totalEMR,
-                emrBreakdown: emr.breakdown,
-                riskClass: rc.class,
-                premium: prem,
+                name: form.name, age: age || 0, gender: form.gender, dob: form.dob,
+                residence: form.residence, profession: form.profession,
+                height: parseFloat(form.height) || 0, weight: parseFloat(form.weight) || 0,
+                bmi: parseFloat(bmi) || 0, income: form.income, incomeSource: form.incomeSource,
+                conditions, severities,
+                smoking: form.smoking, alcohol: form.alcohol, tobacco: form.tobacco,
+                occupation: form.occupation,
+                lifeCover: parseFloat(form.lifeCover) || 0,
+                cirCover: parseFloat(form.cirCover) || 0,
+                accidentCover: parseFloat(form.accidentCover) || 0,
+                emrScore: emrResult.totalEMR,
+                emrBreakdown: emrResult.breakdown,
+                riskClass: riskResult.class,
+                premium: premResult,
                 status: 'pending',
-                source: 'scan',
+                source: mode === 'scanned' ? 'scan' : 'manual',
             });
             navigate('/dashboard');
         } catch (err) {
-            console.error('Failed to create proposal:', err);
+            console.error(err);
             alert('Failed to create proposal. Please try again.');
-        } finally {
-            setCreating(false);
-        }
+        } finally { setCreating(false); }
     };
 
-    const Field = ({ label, field, type = 'text', icon }) => (
-        <div className="flex items-center justify-between py-3 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl gap-3">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-medium min-w-[100px]">
-                {icon && <span className="text-primary">{icon}</span>}
-                {label}
-            </div>
-            {editing ? (
-                <input
-                    type={type}
-                    className="flex-1 text-right bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary"
-                    value={extracted[field] ?? ''}
-                    onChange={e => updateField(field, type === 'number' ? parseFloat(e.target.value) || '' : e.target.value)}
-                />
-            ) : (
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                    {String(extracted[field] || '—')}
-                </span>
-            )}
-        </div>
-    );
-
-    const SelectField = ({ label, field, options }) => (
-        <div className="flex items-center justify-between py-3 px-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl gap-3">
-            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium min-w-[100px]">{label}</span>
-            {editing ? (
-                <select
-                    className="flex-1 text-right bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary"
-                    value={extracted[field] ?? ''}
-                    onChange={e => updateField(field, e.target.value)}
-                >
-                    {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-            ) : (
-                <span className="text-sm font-semibold text-slate-900 dark:text-white capitalize">
-                    {(options.find(([v]) => v === extracted[field])?.[1]) || extracted[field] || '—'}
-                </span>
-            )}
-        </div>
-    );
+    const STEPS = [
+        { title: '🧾 Basic Details', icon: '📋' },
+        { title: '👨‍👩‍👧 Family & Health', icon: '🏥' },
+        { title: '🚬 Habits & Occupation', icon: '💼' },
+        { title: '💰 Coverage', icon: '🛡️' },
+        { title: '📊 Review & Premium', icon: '✅' },
+    ];
 
     return (
-        <div className="min-h-screen pt-28 pb-32 px-4 md:px-8 max-w-5xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">{t('scan')}</h1>
-                <p className="text-slate-500 mt-2">{t('scanInsDoc')}</p>
+        <div className="min-h-screen pt-28 pb-32 px-4 md:px-8 max-w-4xl mx-auto">
+            <canvas ref={canvasRef} hidden />
+
+            {/* Header */}
+            <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">Insurance Proposal</h1>
+                    <p className="text-slate-500 mt-1">Fill the form or scan a physical proposal</p>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={() => inputRef.current?.click()}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                        <Upload size={16} /> Scan Form
+                    </button>
+                    <button onClick={() => cameraRef.current?.click()}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                        <Camera size={16} /> Camera
+                    </button>
+                    <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0])} />
+                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0])} />
+                </div>
             </div>
 
-            <AnimatePresence mode="wait">
-                {/* ── UPLOAD STAGE ── */}
-                {stage === 'upload' && (
-                    <motion.div key="upload"
-                        className="bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl p-12 text-center cursor-pointer hover:border-primary dark:hover:border-primary transition-colors"
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-                        onDrop={handleDrop} onDragOver={handleDragOver}
-                        onClick={() => inputRef.current?.click()}
-                    >
-                        <div className="w-20 h-20 mx-auto mb-6 bg-primary/10 rounded-2xl flex items-center justify-center">
-                            <ScanLine size={40} className="text-primary" />
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{t('dragDrop')}</h3>
-                        <p className="text-slate-500 mb-8">Supports JPG, PNG — Scan your AegisAI Proposal Form</p>
-                        <div className="flex gap-4 justify-center">
-                            <button className="bg-primary text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-                                onClick={e => { e.stopPropagation(); inputRef.current?.click(); }}>
-                                <Upload size={18} /> {t('uploadDoc')}
-                            </button>
-                            <button className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                                onClick={e => { e.stopPropagation(); cameraRef.current?.click(); }}>
-                                <Camera size={18} /> {t('takePhoto')}
-                            </button>
-                        </div>
-                        <input ref={inputRef} type="file" accept="image/*,.pdf" hidden onChange={e => handleFile(e.target.files[0])} />
-                        <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleFile(e.target.files[0])} />
-                    </motion.div>
-                )}
-
-                {/* ── PROCESSING STAGE ── */}
-                {stage === 'processing' && (
-                    <motion.div key="processing"
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center"
-                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                    >
-                        <div className="w-20 h-20 mx-auto mb-6 relative">
-                            <div className="absolute inset-0 border-4 border-primary/20 rounded-full animate-ping" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Loader size={36} className="text-primary animate-spin" />
+            {/* Scanning Overlay */}
+            <AnimatePresence>
+                {mode === 'scanning' && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-3xl p-10 max-w-sm w-full text-center border border-slate-200 dark:border-slate-800">
+                            <div className="w-16 h-16 mx-auto mb-4 relative">
+                                <div className="absolute inset-0 border-4 border-primary/20 rounded-full animate-ping" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <Loader size={32} className="text-primary animate-spin" />
+                                </div>
                             </div>
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">AI Processing Document...</h3>
-                        <p className="text-slate-500 mb-6">Extracting data with OCR and AI analysis ({scanProgress}%)</p>
-                        <div className="max-w-sm mx-auto">
-                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 mb-6 overflow-hidden">
-                                <div className="bg-gradient-to-r from-primary to-blue-400 h-3 rounded-full transition-all duration-300" style={{ width: `${scanProgress}%` }} />
-                            </div>
-                            <div className="space-y-3">
-                                {['Text Detection', 'Field Extraction', 'Premium Calculation'].map((s, i) => (
-                                    <div key={s} className={`flex items-center gap-3 text-sm transition-all ${scanProgress > (i * 30) ? 'text-primary font-semibold' : 'text-slate-400'}`}>
-                                        <CheckCircle size={16} className={scanProgress > (i * 30) ? 'text-green-500' : 'text-slate-300'} />
-                                        {s}
-                                    </div>
-                                ))}
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Scanning Document...</h3>
+                            <p className="text-sm text-slate-500 mb-4">Extracting handwritten values ({scanProgress}%)</p>
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                                <div className="bg-primary h-2 rounded-full transition-all duration-300" style={{ width: `${scanProgress}%` }} />
                             </div>
                         </div>
                     </motion.div>
                 )}
+            </AnimatePresence>
 
-                {/* ── RESULTS STAGE ── */}
-                {stage === 'done' && extracted && (
-                    <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+            {/* Scanned notification */}
+            {mode === 'scanned' && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-start gap-3">
+                    <AlertTriangle size={20} className="text-amber-500 mt-0.5 shrink-0" />
+                    <div>
+                        <p className="text-sm font-bold text-amber-800 dark:text-amber-200">Scan Complete — Please Review</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">OCR extracted what it could. Empty/incorrect fields are normal — edit them manually below. Premium updates in real-time as you type.</p>
+                    </div>
+                </motion.div>
+            )}
 
-                        {/* Header */}
-                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                                    <FileText size={20} className="text-green-600" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Extracted Proposal Data</h3>
-                                    <p className="text-xs text-slate-500">Review and edit fields before creating proposal</p>
-                                </div>
-                            </div>
-                            <button
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${editing ? 'bg-green-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'}`}
-                                onClick={() => setEditing(!editing)}
-                            >
-                                {editing ? <><Save size={16} /> Done</> : <><Edit2 size={16} /> Edit</>}
-                            </button>
-                        </div>
+            {/* Step Indicator */}
+            <div className="flex gap-1 mb-6 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {STEPS.map((s, i) => (
+                    <button key={i} onClick={() => setStep(i)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${step === i ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <span>{s.icon}</span> {s.title}
+                    </button>
+                ))}
+            </div>
 
-                        {/* Warning if no name extracted */}
-                        {!extracted.name && (
-                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-start gap-3">
-                                <AlertTriangle size={20} className="text-amber-500 mt-0.5" />
-                                <div>
-                                    <p className="text-sm font-bold text-amber-800 dark:text-amber-200">Some fields may be empty</p>
-                                    <p className="text-xs text-amber-600 dark:text-amber-400">OCR may not detect all handwritten/blank fields. Click "Edit" to fill them manually.</p>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Personal Details */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Personal Details</h4>
-                                <div className="space-y-2">
-                                    <Field label="Name" field="name" />
-                                    <Field label="Age" field="age" type="number" />
-                                    <SelectField label="Gender" field="gender" options={[['male', 'Male'], ['female', 'Female'], ['other', 'Other']]} />
-                                    <Field label="DOB" field="dob" />
-                                    <Field label="Residence" field="residence" />
-                                    <Field label="Profession" field="profession" />
-                                </div>
-                            </div>
-
-                            {/* Physical Details */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Physical & Financial</h4>
-                                <div className="space-y-2">
-                                    <Field label="Height (cm)" field="height" type="number" />
-                                    <Field label="Weight (kg)" field="weight" type="number" />
-                                    <Field label="BMI" field="bmi" />
-                                    <Field label="Income (₹)" field="income" type="number" />
-                                    <Field label="Income Source" field="incomeSource" />
-                                    <SelectField label="Occupation Risk" field="occupation" options={[
-                                        ['desk_job', 'Desk Job'], ['light_manual', 'Light Manual'], ['moderate_physical', 'Moderate Physical'],
-                                        ['heavy_manual', 'Heavy Manual'], ['hazardous', 'Hazardous'], ['extreme_risk', 'Extreme Risk']
-                                    ]} />
-                                </div>
-                            </div>
-
-                            {/* Coverage */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Coverage Selection</h4>
-                                <div className="space-y-2">
-                                    <Field label="Life Cover (₹)" field="lifeCover" type="number" />
-                                    <Field label="CIR Cover (₹)" field="cirCover" type="number" />
-                                    <Field label="Accident Cover (₹)" field="accidentCover" type="number" />
-                                </div>
-                            </div>
-
-                            {/* Lifestyle & Health */}
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-4">Lifestyle & Health</h4>
-                                <div className="space-y-2">
-                                    <SelectField label="Smoking" field="smoking" options={[['never', 'Never'], ['former', 'Former'], ['occasional', 'Occasional'], ['regular', 'Regular']]} />
-                                    <SelectField label="Alcohol" field="alcohol" options={[['never', 'Never'], ['social', 'Social'], ['moderate', 'Moderate'], ['heavy', 'Heavy']]} />
-                                    <SelectField label="Tobacco" field="tobacco" options={[['never', 'Never'], ['occasional', 'Occasional'], ['regular', 'Regular']]} />
-                                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                                        <p className="text-xs font-bold text-slate-400 mb-2">Detected Conditions:</p>
-                                        {extracted.conditions?.length > 0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {extracted.conditions.map(c => (
-                                                    <span key={c} className="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-full text-xs font-bold capitalize">
-                                                        {c.replace('_', ' ')} (Sev: {extracted.severities?.[c] || 1})
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-green-600 dark:text-green-400 font-semibold">✓ No conditions detected</span>
-                                        )}
+            {/* Form Content */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 mb-6">
+                <AnimatePresence mode="wait">
+                    {/* Step 0: Basic Details */}
+                    {step === 0 && (
+                        <motion.div key="s0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormInput label="Full Name *" value={form.name} onChange={v => updateForm('name', v)} placeholder="e.g. Sourav Deogharia" />
+                                <FormSelect label="Gender" value={form.gender} onChange={v => updateForm('gender', v)}
+                                    options={[['male', 'Male'], ['female', 'Female'], ['other', 'Other']]} />
+                                <FormInput label="Place of Residence" value={form.residence} onChange={v => updateForm('residence', v)} placeholder="e.g. Mumbai" />
+                                <FormInput label="Date of Birth" value={form.dob} onChange={v => updateForm('dob', v)} type="date" />
+                                <FormInput label="Profession" value={form.profession} onChange={v => updateForm('profession', v)} placeholder="e.g. Software Engineer" />
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Age (auto)</label>
+                                    <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-900 dark:text-white font-semibold">
+                                        {age || '—'}
                                     </div>
                                 </div>
+                                <FormInput label="Height (cm)" value={form.height} onChange={v => updateForm('height', v)} type="number" placeholder="e.g. 175" />
+                                <FormInput label="Weight (kg)" value={form.weight} onChange={v => updateForm('weight', v)} type="number" placeholder="e.g. 72" />
+                                <FormInput label="Yearly Income (₹)" value={form.income} onChange={v => updateForm('income', v)} type="number" placeholder="e.g. 1200000" />
+                                <FormInput label="Source of Income" value={form.incomeSource} onChange={v => updateForm('incomeSource', v)} placeholder="e.g. Salaried" />
                             </div>
-                        </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-400 pt-2">
+                                <span>BMI: <strong className="text-slate-700 dark:text-slate-200">{bmi || '—'}</strong></span>
+                            </div>
+                        </motion.div>
+                    )}
 
-                        {/* ── Premium & Risk Summary ── */}
-                        {premiumData && riskData && emrData && (
-                            <div className="bg-gradient-to-br from-primary/5 via-white to-blue-50 dark:from-primary/10 dark:via-slate-900 dark:to-slate-900 border border-primary/20 rounded-3xl p-6">
-                                <h4 className="text-sm font-black uppercase tracking-wider text-primary mb-6 flex items-center gap-2">
+                    {/* Step 1: Family & Health */}
+                    {step === 1 && (
+                        <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">Family History</h4>
+                                <FormSelect label="Parent Health Status" value={form.parentStatus} onChange={v => updateForm('parentStatus', v)}
+                                    options={FAMILY_OPTIONS.map(o => [o.value, o.label])} />
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">Health Conditions — Select Severity</h4>
+                                <div className="space-y-3">
+                                    {HEALTH_CONDITIONS.map(c => (
+                                        <div key={c.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 min-w-[130px]">{c.label}</span>
+                                            <select value={form[c.key]} onChange={e => updateForm(c.key, parseInt(e.target.value))}
+                                                className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary text-slate-900 dark:text-white">
+                                                {SEVERITY_LEVELS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Step 2: Habits & Occupation */}
+                    {step === 2 && (
+                        <motion.div key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">Personal Habits</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <FormSelect label="🚬 Smoking" value={form.smoking} onChange={v => updateForm('smoking', v)}
+                                        options={HABIT_OPTIONS.map(o => [o.value, o.label])} />
+                                    <FormSelect label="🍺 Alcohol" value={form.alcohol} onChange={v => updateForm('alcohol', v)}
+                                        options={HABIT_OPTIONS.map(o => [o.value, o.label])} />
+                                    <FormSelect label="🍂 Tobacco" value={form.tobacco} onChange={v => updateForm('tobacco', v)}
+                                        options={HABIT_OPTIONS.map(o => [o.value, o.label])} />
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-3">Occupation Risk Category</h4>
+                                <FormSelect label="Occupation Type" value={form.occupation} onChange={v => updateForm('occupation', v)}
+                                    options={OCCUPATION_OPTIONS.map(o => [o.value, o.label])} />
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Step 3: Coverage */}
+                    {step === 3 && (
+                        <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                            <h4 className="text-sm font-black uppercase tracking-wider text-slate-400 mb-2">Coverage Selection</h4>
+                            <FormInput label="Base / Life Cover (₹)" value={form.lifeCover} onChange={v => updateForm('lifeCover', v)} type="number" placeholder="e.g. 5000000" />
+                            <FormInput label="CIR – Critical Illness Rider (₹)" value={form.cirCover} onChange={v => updateForm('cirCover', v)} type="number" placeholder="e.g. 1000000" />
+                            <FormInput label="Accident Cover (₹)" value={form.accidentCover} onChange={v => updateForm('accidentCover', v)} type="number" placeholder="e.g. 2500000" />
+                        </motion.div>
+                    )}
+
+                    {/* Step 4: Review & Premium */}
+                    {step === 4 && (
+                        <motion.div key="s4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                            {/* Summary */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                <SummaryItem label="Name" value={form.name} />
+                                <SummaryItem label="Age" value={age} />
+                                <SummaryItem label="Gender" value={form.gender} />
+                                <SummaryItem label="Residence" value={form.residence} />
+                                <SummaryItem label="Profession" value={form.profession} />
+                                <SummaryItem label="BMI" value={bmi} />
+                                <SummaryItem label="Income" value={form.income ? `₹${parseInt(form.income).toLocaleString()}` : ''} />
+                                <SummaryItem label="Smoking" value={form.smoking} />
+                                <SummaryItem label="Alcohol" value={form.alcohol} />
+                            </div>
+
+                            {/* Conditions */}
+                            {conditions.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-bold text-slate-400 mb-2 uppercase">Health Conditions</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {HEALTH_CONDITIONS.filter(c => form[c.key] > 0).map(c => (
+                                            <span key={c.key} className="px-3 py-1 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-full text-xs font-bold">
+                                                {c.label} (Severity {form[c.key]})
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Premium Card */}
+                            <div className="bg-gradient-to-br from-primary/5 via-white to-blue-50 dark:from-primary/10 dark:via-slate-900 dark:to-slate-800 border border-primary/20 rounded-2xl p-6">
+                                <h4 className="text-sm font-black uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
                                     <Activity size={16} /> Insurance Assessment
                                 </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 text-center border border-slate-100 dark:border-slate-700">
-                                        <p className="text-xs text-slate-500 mb-1 font-bold">EMR Score</p>
-                                        <p className="text-2xl font-black text-slate-900 dark:text-white">{emrData.totalEMR}</p>
-                                    </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 text-center border border-slate-100 dark:border-slate-700">
-                                        <p className="text-xs text-slate-500 mb-1 font-bold">Risk Class</p>
-                                        <p className="text-2xl font-black" style={{ color: riskData.color }}>{riskData.class}</p>
-                                        <p className="text-xs" style={{ color: riskData.color }}>{riskData.label}</p>
-                                    </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 text-center border border-slate-100 dark:border-slate-700">
-                                        <p className="text-xs text-slate-500 mb-1 font-bold">Annual Premium</p>
-                                        <p className="text-2xl font-black text-primary">{fc ? fc(premiumData.total) : `₹${premiumData.total.toLocaleString()}`}</p>
-                                    </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 text-center border border-slate-100 dark:border-slate-700">
-                                        <p className="text-xs text-slate-500 mb-1 font-bold">Monthly</p>
-                                        <p className="text-2xl font-black text-green-600">{fc ? fc(Math.round(premiumData.total / 12)) : `₹${Math.round(premiumData.total / 12).toLocaleString()}`}</p>
-                                    </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                                    <MetricCard label="EMR Score" value={emrResult.totalEMR} />
+                                    <MetricCard label="Risk Class" value={riskResult.class} color={riskResult.color} sub={riskResult.label} />
+                                    <MetricCard label="Annual Premium" value={fc ? fc(premResult.total) : `₹${premResult.total.toLocaleString()}`} color="#2563eb" />
+                                    <MetricCard label="Monthly" value={fc ? fc(Math.round(premResult.total / 12)) : `₹${Math.round(premResult.total / 12).toLocaleString()}`} color="#16a34a" />
                                 </div>
 
                                 {/* EMR Breakdown */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                                <div className="grid grid-cols-5 gap-2 mb-4">
                                     {[
-                                        { label: 'Base', val: emrData.base, color: '#6b7280' },
-                                        { label: 'Family', val: emrData.familyEMR, color: '#8b5cf6' },
-                                        { label: 'Health', val: emrData.healthEMR, color: '#ef4444' },
-                                        { label: 'Lifestyle', val: emrData.lifestyleEMR, color: '#f59e0b' },
-                                        { label: 'Occupation', val: emrData.occupationEMR, color: '#10b981' },
+                                        { label: 'Base', val: emrResult.base, color: '#6b7280' },
+                                        { label: 'Family', val: emrResult.familyEMR, color: '#8b5cf6' },
+                                        { label: 'Health', val: emrResult.healthEMR, color: '#ef4444' },
+                                        { label: 'Lifestyle', val: emrResult.lifestyleEMR, color: '#f59e0b' },
+                                        { label: 'Occupation', val: emrResult.occupationEMR, color: '#10b981' },
                                     ].map(item => (
-                                        <div key={item.label} className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.label}</p>
-                                            <p className="text-lg font-black mt-1" style={{ color: item.color }}>+{item.val}</p>
+                                        <div key={item.label} className="bg-white dark:bg-slate-800 rounded-xl p-2 text-center">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{item.label}</p>
+                                            <p className="text-sm font-black" style={{ color: item.color }}>+{item.val}</p>
                                         </div>
                                     ))}
                                 </div>
 
                                 {/* Premium Breakdown */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Life</p>
-                                        <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{fc ? fc(premiumData.life) : `₹${premiumData.life.toLocaleString()}`}</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-2 text-center">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase">Life</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-white">₹{premResult.life.toLocaleString()}</p>
                                     </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">CIR</p>
-                                        <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{fc ? fc(premiumData.cir) : `₹${premiumData.cir.toLocaleString()}`}</p>
+                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-2 text-center">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase">CIR</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-white">₹{premResult.cir.toLocaleString()}</p>
                                     </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Accident</p>
-                                        <p className="text-sm font-bold text-slate-900 dark:text-white mt-1">{fc ? fc(premiumData.accident) : `₹${premiumData.accident.toLocaleString()}`}</p>
+                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-2 text-center">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase">Accident</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-white">₹{premResult.accident.toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-4">
-                            <button
-                                className="flex-1 bg-primary text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50"
-                                onClick={handleCreate}
-                                disabled={creating}
-                            >
-                                {creating ? (
-                                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <><CheckCircle size={18} /> Create Proposal &amp; Save</>
-                                )}
-                            </button>
-                            <button
-                                className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-6 py-4 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-                                onClick={() => { setStage('upload'); setExtracted(null); setPremiumData(null); setRiskData(null); setEmrData(null); }}
-                            >
-                                <ScanLine size={18} /> Rescan
-                            </button>
-                        </div>
-                    </motion.div>
+            {/* Navigation */}
+            <div className="flex gap-3">
+                {step > 0 && (
+                    <button onClick={() => setStep(step - 1)}
+                        className="px-6 py-3.5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
+                        <ChevronLeft size={18} /> Back
+                    </button>
                 )}
-            </AnimatePresence>
+                <div className="flex-1" />
+                {step < 4 ? (
+                    <button onClick={() => setStep(step + 1)}
+                        className="px-6 py-3.5 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                        Next <ChevronRight size={18} />
+                    </button>
+                ) : (
+                    <button onClick={handleCreate} disabled={creating || !form.name}
+                        className="px-8 py-3.5 bg-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">
+                        {creating ? <Loader size={18} className="animate-spin" /> : <CheckCircle size={18} />}
+                        {creating ? 'Creating...' : 'Create Proposal'}
+                    </button>
+                )}
+            </div>
+
+            {/* Live Premium Footer */}
+            {(parseFloat(form.lifeCover) > 0 || parseFloat(form.cirCover) > 0 || parseFloat(form.accidentCover) > 0) && step < 4 && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                    className="fixed bottom-24 lg:bottom-6 left-4 right-4 lg:left-auto lg:right-8 z-50 max-w-sm mx-auto lg:mx-0">
+                    <div className="bg-white dark:bg-slate-900 border border-primary/20 rounded-2xl p-4 shadow-2xl flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Live Premium</p>
+                            <p className="text-xl font-black text-primary">₹{premResult.total.toLocaleString()}<span className="text-xs text-slate-400 font-normal">/yr</span></p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold text-slate-400">EMR {emrResult.totalEMR}</p>
+                            <p className="text-sm font-bold" style={{ color: riskResult.color }}>{riskResult.class}</p>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+        </div>
+    );
+}
+
+// ── Reusable Components ──
+function FormInput({ label, value, onChange, type = 'text', placeholder = '' }) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+            <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                className="px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder:text-slate-400" />
+        </div>
+    );
+}
+function FormSelect({ label, value, onChange, options }) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+            <select value={value} onChange={e => onChange(e.target.value)}
+                className="px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+        </div>
+    );
+}
+function SummaryItem({ label, value }) {
+    return (
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+            <p className="text-[10px] font-bold text-slate-400 uppercase">{label}</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white capitalize">{String(value || '—')}</p>
+        </div>
+    );
+}
+function MetricCard({ label, value, color, sub }) {
+    return (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 text-center border border-slate-100 dark:border-slate-700">
+            <p className="text-xs text-slate-500 mb-1 font-bold">{label}</p>
+            <p className="text-xl font-black" style={color ? { color } : {}}>{value}</p>
+            {sub && <p className="text-[10px] mt-0.5" style={color ? { color } : {}}>{sub}</p>}
         </div>
     );
 }
