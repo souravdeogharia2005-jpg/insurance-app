@@ -1,36 +1,242 @@
+// ==========================================
+// AegisAI - Industry-Standard EMR Calculator
+// Based on life insurance underwriting tables
+// ==========================================
+
+// 📊 BMI → EMR
+function getBmiEMR(bmi) {
+    if (!bmi || bmi <= 0) return 0;
+    if (bmi < 18) return 10;
+    if (bmi <= 23) return 0;
+    if (bmi <= 28) return 5;
+    if (bmi <= 33) return 10;
+    if (bmi <= 38) return 15;
+    return 20; // >38 extreme
+}
+
+// 👨‍👩‍👦 Family History → EMR
+function getFamilyEMR(status) {
+    const map = {
+        both_above_65:     -10,
+        one_above_65:      -5,
+        both_below_65:     10,
+        // legacy fallbacks
+        alive_healthy:     -10,
+        minor_issues:      -5,
+        major_issues:      5,
+        deceased_after_60: -5,
+        deceased_before_60: 10,
+    };
+    return map[status] || 0;
+}
+
+// 🏥 Health Conditions - severity points table (severity 1-4)
+const DISEASE_POINTS = {
+    thyroid:      [2.5, 5,   7.5, 10],
+    asthma:       [5,   7.5, 10,  12.5],
+    hypertension: [5,   7.5, 10,  15],
+    diabetes:     [10,  15,  20,  25],
+    gut_disorder: [5,   10,  15,  20],
+    // backward-compat keys used in legacy data
+    heart_disease:  [10, 15, 20, 30],
+    respiratory:    [5,  7.5, 10, 12.5],
+    cancer:         [15, 20, 25, 40],
+    liver:          [5,  10, 15, 20],
+    kidney:         [7.5, 10, 15, 18],
+    neurological:   [7.5, 10, 15, 22],
+};
+
+// 🚬 Personal Habits → EMR per level (1=occasional, 2=regular moderate, 3=regular heavy)
+const HABIT_POINTS = [5, 10, 15];
+
+const HABIT_LEVEL_MAP = {
+    never:      0,
+    social:     1,
+    occasional: 1,
+    moderate:   2,
+    regular:    2,
+    heavy:      3,
+    former:     1,
+};
+
+// 💼 Occupation → flat EMR addition
+const OCCUPATION_MAP = {
+    athlete:         2,
+    pilot:           6,
+    driver:          2,
+    merchant_navy:   3,
+    oil_industry:    3,
+    hazardous:       3,
+    extreme_risk:    6,
+    heavy_manual:    2,
+    moderate_physical: 1,
+    light_manual:    0,
+    desk_job:        0,
+};
+
+// 📈 Life Insurance EMR → Factor
+function getLifeFactor(emr) {
+    if (emr <= 35)  return { class: 'I',    factor: 1,  label: 'Standard' };
+    if (emr <= 60)  return { class: 'II',   factor: 2,  label: 'Low Risk' };
+    if (emr <= 85)  return { class: 'III',  factor: 3,  label: 'Moderate' };
+    if (emr <= 120) return { class: 'IV',   factor: 4,  label: 'High' };
+    if (emr <= 170) return { class: 'V',    factor: 6,  label: 'Very High' };
+    if (emr <= 225) return { class: 'VI',   factor: 8,  label: 'Extra Risk' };
+    if (emr <= 275) return { class: 'VII',  factor: 10, label: 'Severe' };
+    if (emr <= 350) return { class: 'VIII', factor: 12, label: 'Very Severe' };
+    if (emr <= 450) return { class: 'IX',   factor: 16, label: 'Critical' };
+    return              { class: 'X',    factor: 20, label: 'Danger' };
+}
+
+// 🏥 Health Insurance EMR → Factor
+function getHealthFactor(emr) {
+    if (emr <= 20) return { class: 'Std', factor: 0,  label: 'Standard' };
+    if (emr <= 35) return { class: 'I',   factor: 1,  label: 'Low' };
+    if (emr <= 60) return { class: 'II',  factor: 2,  label: 'Moderate' };
+    if (emr <= 75) return { class: 'III', factor: 3,  label: 'High' };
+    return             { class: 'IV',  factor: 4,  label: 'Very High' };
+}
+
+// 💰 Age → Premium rates per mille
+function getAgeRate(age) {
+    if (!age || age <= 0) return { life: 1.5, accident: 1.0, cir: 3.0 };
+    if (age <= 35) return { life: 1.5,  accident: 1.0, cir: 3.0 };
+    if (age <= 40) return { life: 3.0,  accident: 1.0, cir: 6.0 };
+    if (age <= 45) return { life: 4.5,  accident: 1.0, cir: 12.0 };
+    if (age <= 50) return { life: 6.0,  accident: 1.0, cir: 15.0 };
+    if (age <= 55) return { life: 7.5,  accident: 1.5, cir: 20.0 };
+    return               { life: 9.0,  accident: 1.5, cir: 25.0 };
+}
+
+// ============================================================
+// MAIN: calculateEMR
+// data shape:
+//   bmi, fatherStatus, motherStatus,
+//   conditions (array of keys), severities (object key→1..4),
+//   smoking, alcohol, tobacco (string levels),
+//   occupation (string key), age (number)
+// ============================================================
 export function calculateEMR(data) {
-    let base = 100, familyEMR = 0, healthEMR = 0, lifestyleEMR = 0, occupationEMR = 0;
-    const fMap = { alive_healthy: 0, minor_issues: 10, major_issues: 25, deceased_before_60: 50, deceased_after_60: 25 };
-    familyEMR += fMap[data.fatherStatus] || 0;
-    familyEMR += fMap[data.motherStatus] || 0;
-    if (data.conditions && data.conditions.length > 0) {
-        const cBase = { diabetes: 15, hypertension: 12, heart_disease: 30, respiratory: 10, cancer: 40, liver: 20, kidney: 18, neurological: 22 };
-        data.conditions.forEach(c => { const sev = (data.severities && data.severities[c]) || 1; healthEMR += (cBase[c] || 10) * (0.5 + sev * 0.5); });
+    let bmiEMR = 0, familyEMR = 0, healthEMR = 0,
+        coMorbidityEMR = 0, lifestyleEMR = 0, habitComboEMR = 0, occupationEMR = 0;
+
+    // -- BMI
+    bmiEMR = getBmiEMR(parseFloat(data.bmi) || 0);
+
+    // -- Family (use single parentStatus OR separate father/mother)
+    if (data.parentStatus) {
+        familyEMR = getFamilyEMR(data.parentStatus);
+    } else {
+        familyEMR = getFamilyEMR(data.fatherStatus) + getFamilyEMR(data.motherStatus);
     }
-    const sMap = { never: 0, former: 15, occasional: 25, regular: 40 };
-    const aMap = { never: 0, social: 5, moderate: 15, heavy: 30 };
-    const tMap = { never: 0, occasional: 15, regular: 30 };
-    lifestyleEMR += sMap[data.smoking] || 0;
-    lifestyleEMR += aMap[data.alcohol] || 0;
-    lifestyleEMR += tMap[data.tobacco] || 0;
-    const oMap = { desk_job: 0, light_manual: 5, moderate_physical: 10, heavy_manual: 20, hazardous: 30, extreme_risk: 50 };
-    occupationEMR += oMap[data.occupation] || 0;
-    const totalEMR = base + familyEMR + healthEMR + lifestyleEMR + occupationEMR;
-    return { base, familyEMR, healthEMR, lifestyleEMR, occupationEMR, totalEMR, breakdown: { base, family: familyEMR, health: healthEMR, lifestyle: lifestyleEMR, occupation: occupationEMR } };
+
+    // -- Health conditions + co-morbidity
+    const activeConditions = Array.isArray(data.conditions) ? data.conditions : [];
+    let diseaseCount = 0;
+    activeConditions.forEach(condKey => {
+        const sev = (data.severities && data.severities[condKey]) || 1;
+        const pts = DISEASE_POINTS[condKey];
+        if (pts) {
+            const idx = Math.min(Math.max(Math.floor(sev) - 1, 0), pts.length - 1);
+            healthEMR += pts[idx];
+            diseaseCount++;
+        }
+    });
+
+    // Co-morbidity bonus
+    if (diseaseCount === 2) coMorbidityEMR = 20;
+    else if (diseaseCount >= 3) coMorbidityEMR = 40;
+
+    // -- Habits
+    const habitKeys = ['smoking', 'alcohol', 'tobacco'];
+    let habitCount = 0;
+    habitKeys.forEach(h => {
+        const level = HABIT_LEVEL_MAP[data[h]] || 0;
+        if (level > 0) {
+            lifestyleEMR += HABIT_POINTS[level - 1];
+            habitCount++;
+        }
+    });
+
+    // Risky habit combo bonus
+    if (habitCount === 2) habitComboEMR = 20;
+    else if (habitCount >= 3) habitComboEMR = 40;
+
+    // -- Occupation
+    occupationEMR = OCCUPATION_MAP[data.occupation] || 0;
+
+    const totalEMR = bmiEMR + familyEMR + healthEMR + coMorbidityEMR +
+                     lifestyleEMR + habitComboEMR + occupationEMR;
+
+    return {
+        totalEMR: Math.max(0, Math.round(totalEMR)),
+        bmiEMR, familyEMR, healthEMR, coMorbidityEMR,
+        lifestyleEMR, habitComboEMR, occupationEMR,
+        // keep legacy keys for compatibility
+        base: 0, healthEMR, lifestyleEMR, occupationEMR,
+        breakdown: {
+            bmi: bmiEMR, family: familyEMR, health: healthEMR,
+            comorbidity: coMorbidityEMR, lifestyle: lifestyleEMR,
+            habitCombo: habitComboEMR, occupation: occupationEMR,
+        },
+    };
 }
 
+// ============================================================
+// getRiskClass — returns life factor & colour for the UI ring
+// ============================================================
 export function getRiskClass(emr) {
-    if (emr <= 90) return { class: 'Class I', label: 'Lowest Risk', color: '#10b981' };
-    if (emr <= 110) return { class: 'Class II', label: 'Low Risk', color: '#84cc16' };
-    if (emr <= 130) return { class: 'Class III', label: 'Moderate Risk', color: '#f59e0b' };
-    if (emr <= 150) return { class: 'Class IV', label: 'High Risk', color: '#ef4444' };
-    return { class: 'Class V', label: 'Highest Risk', color: '#dc2626' };
+    const lf = getLifeFactor(emr);
+    const colorMap = {
+        1:  '#10b981', 2:  '#84cc16', 3:  '#f59e0b',
+        4:  '#f97316', 6:  '#ef4444', 8:  '#dc2626',
+        10: '#b91c1c', 12: '#991b1b', 16: '#7f1d1d', 20: '#450a0a',
+    };
+    return {
+        class:  'Class ' + lf.class,
+        label:  lf.label,
+        factor: lf.factor,
+        color:  colorMap[lf.factor] || '#ef4444',
+    };
 }
 
+// ============================================================
+// calculatePremium
+// data: { lifeCover, cirCover, accidentCover, age }
+// emr: number
+// ============================================================
 export function calculatePremium(data, emr) {
-    const f = emr / 100;
-    const lifeP = Math.round((data.lifeCover || 0) * 0.005 * f);
-    const cirP = Math.round((data.cirCover || 0) * 0.008 * f);
-    const accP = Math.round((data.accidentCover || 0) * 0.003);
-    return { life: lifeP, cir: cirP, accident: accP, total: lifeP + cirP + accP };
+    const age = parseInt(data.age) || 30;
+    const rate = getAgeRate(age);
+
+    const lifeSA     = parseFloat(data.lifeCover)     || 0;
+    const cirSA      = parseFloat(data.cirCover)      || 0;
+    const accSA      = parseFloat(data.accidentCover) || 0;
+
+    const lf = getLifeFactor(emr);
+    const hf = getHealthFactor(emr);
+
+    // Base premium = rate × SA / 1000
+    const lifeBase = (rate.life     * lifeSA) / 1000;
+    const cirBase  = (rate.cir      * cirSA)  / 1000;
+    const accBase  = (rate.accident * accSA)  / 1000;
+
+    // Loading: Life = factor × 25%, CIR = health_factor × 30%
+    const lifeLoading   = lf.factor * 0.25;
+    const cirLoading    = hf.factor * 0.30;
+
+    const lifePremium = Math.round(lifeBase + lifeBase * lifeLoading);
+    const cirPremium  = Math.round(cirBase  + cirBase  * cirLoading);
+    const accPremium  = Math.round(accBase);  // flat, no loading
+
+    return {
+        life:     lifePremium,
+        cir:      cirPremium,
+        accident: accPremium,
+        total:    lifePremium + cirPremium + accPremium,
+        lifeFactor:   lf.factor,
+        healthFactor: hf.factor,
+        lifeClass:    lf.class,
+        healthClass:  hf.class,
+    };
 }

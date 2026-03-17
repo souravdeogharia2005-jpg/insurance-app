@@ -116,6 +116,165 @@ function proposalToRow(p, userId) {
 }
 
 // ==========================================
+// EMR & Premium Calculation Engine
+// ==========================================
+function calculateInsurance(user) {
+  let emr = 0;
+
+  // ✅ BMI
+  if (user.bmi < 18) emr += 10;
+  else if (user.bmi <= 23) emr += 0;
+  else if (user.bmi <= 28) emr += 5;
+  else if (user.bmi <= 33) emr += 10;
+  else emr += 15;
+
+  // ✅ Family History
+  if (user.family === "both_above_65") emr -= 10;
+  else if (user.family === "one_above_65") emr -= 5;
+  else if (user.family === "both_below_65") emr += 10;
+
+  // ✅ Diseases
+  const diseasePoints = {
+    thyroid: [2.5, 5, 7.5, 10],
+    asthma: [5, 7.5, 10, 12.5],
+    hypertension: [5, 7.5, 10, 15],
+    diabetes: [10, 15, 20, 25],
+    gut: [5, 10, 15, 20]
+  };
+
+  let diseaseCount = 0;
+
+  if (user.diseases) {
+      for (let d in user.diseases) {
+        let severity = user.diseases[d];
+        if (severity > 0 && diseasePoints[d]) {
+          emr += diseasePoints[d][severity - 1];
+          diseaseCount++;
+        }
+      }
+  }
+
+  // ✅ Co-morbidity
+  if (diseaseCount === 2) emr += 20;
+  if (diseaseCount >= 3) emr += 40;
+
+  // ✅ Habits
+  const habitPoints = [5, 10, 15];
+  let habitCount = 0;
+
+  if (user.habits) {
+      for (let h in user.habits) {
+        let level = user.habits[h];
+        if (level > 0) {
+          emr += habitPoints[level - 1];
+          habitCount++;
+        }
+      }
+  }
+
+  // ✅ Risky habits combo
+  if (habitCount === 2) emr += 20;
+  if (habitCount >= 3) emr += 40;
+
+  // ✅ Find Life Factor
+  function getLifeFactor(emr) {
+    if (emr <= 35) return 1;
+    if (emr <= 60) return 2;
+    if (emr <= 85) return 3;
+    if (emr <= 120) return 4;
+    if (emr <= 170) return 6;
+    if (emr <= 225) return 8;
+    if (emr <= 275) return 10;
+    if (emr <= 350) return 12;
+    if (emr <= 450) return 16;
+    return 20;
+  }
+
+  function getLifeClass(emr) {
+    if (emr <= 35) return 'I';
+    if (emr <= 60) return 'II';
+    if (emr <= 85) return 'III';
+    if (emr <= 120) return 'IV';
+    if (emr <= 170) return 'V';
+    if (emr <= 225) return 'VI';
+    if (emr <= 275) return 'VII';
+    if (emr <= 350) return 'VIII';
+    if (emr <= 450) return 'IX';
+    return 'X';
+  }
+
+  // ✅ Health Factor
+  function getHealthFactor(emr) {
+    if (emr <= 20) return 0;
+    if (emr <= 35) return 1;
+    if (emr <= 60) return 2;
+    if (emr <= 75) return 3;
+    return 4;
+  }
+  
+  function getHealthClass(emr) {
+    if (emr <= 20) return 'Std';
+    if (emr <= 35) return 'I';
+    if (emr <= 60) return 'II';
+    if (emr <= 75) return 'III';
+    return 'IV';
+  }
+
+  let lifeFactor = getLifeFactor(emr);
+  let lifeClass = getLifeClass(emr);
+  let healthFactor = getHealthFactor(emr);
+  let healthClass = getHealthClass(emr);
+
+  // ✅ Get Rates
+  function getRate(age) {
+    if (age <= 35) return { life: 1.5, accident: 1.0, cir: 3.0 };
+    if (age <= 40) return { life: 3.0, accident: 1.0, cir: 6.0 };
+    if (age <= 45) return { life: 4.5, accident: 1.0, cir: 12.0 };
+    if (age <= 50) return { life: 6.0, accident: 1.0, cir: 15.0 };
+    if (age <= 55) return { life: 7.5, accident: 1.5, cir: 20.0 };
+    return { life: 9.0, accident: 1.5, cir: 25.0 };
+  }
+
+  let rate = getRate(user.age || 30);
+
+  // ✅ Sum Assured
+  let lifeSA = user.lifeCover || 10000000; // 100 lakh default
+  let cirSA = user.cirCover || 5000000;   // 50 lakh default
+  let accSA = user.accidentCover || 5000000;   // 50 lakh default
+
+  // ✅ Base Premium
+  let lifeBase = (rate.life * lifeSA) / 1000;
+  let cirBase = (rate.cir * cirSA) / 1000;
+  let accBase = (rate.accident * accSA) / 1000;
+
+  // ✅ Loading
+  let lifePremium = lifeBase + (lifeBase * (lifeFactor * 0.25));
+  let cirPremium = cirBase + (cirBase * (healthFactor * 0.30));
+
+  return {
+    emr,
+    lifeClass,
+    healthClass,
+    lifeFactor,
+    healthFactor,
+    lifePremium,
+    cirPremium,
+    accPremium: accBase,
+    total: lifePremium + cirPremium + accBase
+  };
+}
+
+app.post('/api/calculate', authenticateToken, (req, res) => {
+    try {
+        const result = calculateInsurance(req.body.user);
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error("Calculation Error:", error);
+        res.status(500).json({ error: 'Failed to calculate insurance premium' });
+    }
+});
+
+// ==========================================
 // SCAN & OCR ROUTE (Google Gemini API)
 // ==========================================
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit

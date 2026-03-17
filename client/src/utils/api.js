@@ -222,5 +222,15 @@ export async function scanDocument(file) {
     }
 }
 
+export async function calculateInsuranceAPI(user) {
+    const res = await request('/calculate', {
+        method: 'POST',
+        body: JSON.stringify({ user })
+    });
+    if (!res || !res.ok) throw new Error('Failed to calculate premium');
+    const data = await res.json();
+    return data.result;
+}
+
 export function logout() { removeToken(); }
 export { getToken };
