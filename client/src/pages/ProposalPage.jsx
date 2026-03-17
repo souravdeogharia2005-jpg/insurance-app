@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { createProposal } from '../utils/api';
-import { calculateEMR, getRiskClass, calculatePremium } from '../utils/emr';
+import { calculateInsurance } from '../utils/emr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, BrainCircuit, Activity, Heart, User, CheckCircle2, ChevronRight, ChevronLeft, AlertCircle, TrendingUp, Info } from 'lucide-react';
 
@@ -55,26 +55,39 @@ export default function ProposalPage() {
         }
     }, [form.height, form.weight]);
 
-    const emrInput = {
-        bmi: parseFloat(form.bmi) || 0,
-        parentStatus: form.parentStatus,
-        conditions: form.conditions,
-        severities: form.severities,
-        smoking: form.smoking,
-        alcohol: form.alcohol,
-        tobacco: form.tobacco,
-        occupation: form.occupation,
+    const mapHabit = (val) => {
+        const v = (val || '').toLowerCase();
+        if (v === 'social' || v === 'occasional' || v === 'former') return 1;
+        if (v === 'moderate' || v === 'regular') return 2;
+        if (v === 'heavy' || v === 'high') return 3;
+        return 0; // never
     };
 
-    const [emrData, setEmrData] = useState(calculateEMR(emrInput));
-    const [risk, setRisk]       = useState(getRiskClass(0));
-    const [premium, setPremium] = useState(calculatePremium({ ...form }, 0));
+    const getUserForCalc = () => ({
+        age: parseInt(form.age) || 30,
+        bmi: parseFloat(form.bmi) || 0,
+        family: form.parentStatus,
+        diseases: {
+            thyroid: form.conditions.includes('thyroid') ? (form.severities['thyroid'] || 1) : 0,
+            asthma: form.conditions.includes('asthma') ? (form.severities['asthma'] || 1) : 0,
+            hypertension: form.conditions.includes('hypertension') ? (form.severities['hypertension'] || 1) : 0,
+            diabetes: form.conditions.includes('diabetes') ? (form.severities['diabetes'] || 1) : 0,
+            gut_disorder: form.conditions.includes('gut_disorder') ? (form.severities['gut_disorder'] || 1) : 0,
+        },
+        habits: {
+            smoking: mapHabit(form.smoking),
+            alcohol: mapHabit(form.alcohol),
+            tobacco: mapHabit(form.tobacco)
+        },
+        lifeCover: parseFloat(form.lifeCover) || 0,
+        cirCover: parseFloat(form.cirCover) || 0,
+        accidentCover: parseFloat(form.accidentCover) || 0
+    });
+
+    const [calcResult, setCalcResult] = useState(calculateInsurance(getUserForCalc()));
 
     useEffect(() => {
-        const e = calculateEMR(emrInput);
-        setEmrData(e);
-        setRisk(getRiskClass(e.totalEMR));
-        setPremium(calculatePremium({ ...form, age: parseInt(form.age) || 30 }, e.totalEMR));
+        setCalcResult(calculateInsurance(getUserForCalc()));
     }, [form]);
 
     const toggleCondition = (id) => {
@@ -100,10 +113,19 @@ export default function ProposalPage() {
             const payload = {
                 ...form,
                 bmi: parseFloat(form.bmi) || 0,
-                emrScore: emrData.totalEMR,
-                emrBreakdown: emrData.breakdown,
-                riskClass: risk.class,
-                premium,
+                emrScore: calcResult.emr,
+                emrBreakdown: calcResult.breakdown,
+                riskClass: 'Class ' + calcResult.lifeClass,
+                premium: {
+                    life: calcResult.lifePremium,
+                    cir: calcResult.cirPremium,
+                    accident: calcResult.accPremium,
+                    total: calcResult.total,
+                    lifeFactor: calcResult.lifeFactor,
+                    healthFactor: calcResult.healthFactor,
+                    lifeClass: calcResult.lifeClass,
+                    healthClass: calcResult.healthClass
+                },
                 source: 'manual',
             };
             const res = await createProposal(payload);
@@ -128,17 +150,18 @@ export default function ProposalPage() {
 
                     {/* Final Result Card */}
                     <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-5 mb-6 text-left space-y-2">
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">EMR Score</span><span className="font-black text-slate-900 dark:text-white">{emrData.totalEMR}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Life Class</span><span className="font-bold" style={{ color: risk.color }}>Class {premium.lifeClass} (Factor {premium.lifeFactor})</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Health Class</span><span className="font-bold text-indigo-500">Class {premium.healthClass} (Factor {premium.healthFactor})</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">EMR Score</span><span className="font-black text-slate-900 dark:text-white">{calcResult.emr}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Life Class</span><span className="font-bold" style={{ color: calcResult.color }}>Class {calcResult.lifeClass} (Factor {calcResult.lifeFactor})</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Health Class</span><span className="font-bold text-indigo-500">Class {calcResult.healthClass} (Factor {calcResult.healthFactor})</span></div>
                         <hr className="border-slate-200 dark:border-slate-700" />
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Life Premium</span><span className="font-bold">{fc(premium.life)}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">CIR Premium</span><span className="font-bold">{fc(premium.cir)}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Accident Premium</span><span className="font-bold">{fc(premium.accident)}</span></div>
-                        <div className="flex justify-between font-black text-base border-t border-slate-200 dark:border-slate-700 pt-2"><span>Total Annual</span><span className="text-primary">{fc(premium.total)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Life Premium</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">CIR Premium</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Accident Premium</span><span className="font-bold">{fc(calcResult.accPremium)}</span></div>
+                        <div className="flex justify-between font-black text-base border-t border-slate-200 dark:border-slate-700 pt-2"><span>Total Annual</span><span className="text-primary">{fc(calcResult.total)}</span></div>
                     </div>
 
                     <div className="space-y-3">
+                        <button onClick={() => window.print()} className="w-full bg-slate-800 text-white py-4 rounded-xl font-bold shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all">Download Report (PDF)</button>
                         <button onClick={() => window.location.href = '/dashboard'} className="w-full bg-primary text-white py-4 rounded-xl font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-2 active:scale-95 transition-all">Go to Dashboard <ChevronRight size={18} /></button>
                         <button onClick={() => window.location.reload()} className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-4 rounded-xl font-bold">New Assessment</button>
                     </div>
@@ -426,13 +449,13 @@ export default function ProposalPage() {
                             <div className="relative w-40 h-40 flex items-center justify-center">
                                 <svg className="w-full h-full -rotate-90">
                                     <circle cx="80" cy="80" r="70" className="stroke-slate-800" strokeWidth="12" fill="none" />
-                                    <circle cx="80" cy="80" r="70" className="transition-all duration-1000 ease-out" stroke={risk.color} strokeWidth="12"
+                                    <circle cx="80" cy="80" r="70" className="transition-all duration-1000 ease-out" stroke={calcResult.color} strokeWidth="12"
                                         strokeDasharray={440}
-                                        strokeDashoffset={440 - (440 * Math.min(emrData.totalEMR, 200) / 200)}
+                                        strokeDashoffset={440 - (440 * Math.min(calcResult.emr, 200) / 200)}
                                         strokeLinecap="round" fill="none" />
                                 </svg>
                                 <div className="absolute flex flex-col items-center">
-                                    <span className="text-4xl font-black">{emrData.totalEMR}</span>
+                                    <span className="text-4xl font-black">{calcResult.emr}</span>
                                     <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">EMR Score</span>
                                 </div>
                             </div>
@@ -442,13 +465,12 @@ export default function ProposalPage() {
                         <div className="space-y-2 mb-6 bg-white/5 rounded-2xl p-4">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">EMR Breakdown</p>
                             {[
-                                { label: 'BMI',         val: emrData.bmiEMR,        color: '#60a5fa' },
-                                { label: 'Family',       val: emrData.familyEMR,     color: '#a78bfa' },
-                                { label: 'Health',       val: emrData.healthEMR,     color: '#f87171' },
-                                { label: 'Co-morbidity', val: emrData.coMorbidityEMR, color: '#f59e0b' },
-                                { label: 'Lifestyle',    val: emrData.lifestyleEMR,  color: '#fb923c' },
-                                { label: 'Habit Combo',  val: emrData.habitComboEMR, color: '#ef4444' },
-                                { label: 'Occupation',   val: emrData.occupationEMR, color: '#34d399' },
+                                { label: 'BMI',         val: calcResult.breakdown.bmi,        color: '#60a5fa' },
+                                { label: 'Family',       val: calcResult.breakdown.family,     color: '#a78bfa' },
+                                { label: 'Health',       val: calcResult.breakdown.health,     color: '#f87171' },
+                                { label: 'Co-morbidity', val: calcResult.breakdown.comorbidity, color: '#f59e0b' },
+                                { label: 'Lifestyle',    val: calcResult.breakdown.lifestyle,  color: '#fb923c' },
+                                { label: 'Habit Combo',  val: calcResult.breakdown.habitCombo, color: '#ef4444' },
                             ].map(item => (
                                 item.val !== 0 && (
                                     <div key={item.label} className="flex justify-between items-center text-xs">
@@ -463,11 +485,11 @@ export default function ProposalPage() {
                         <div className="space-y-3 mb-6">
                             <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg" style={{ backgroundColor: risk.color + '20', color: risk.color }}><Shield size={16} /></div>
+                                    <div className="p-2 rounded-lg" style={{ backgroundColor: calcResult.color + '20', color: calcResult.color }}><Shield size={16} /></div>
                                     <span className="font-bold text-sm">Life Class / Factor</span>
                                 </div>
-                                <span className="font-black text-sm" style={{ color: risk.color }}>
-                                    Class {premium.lifeClass} / ×{premium.lifeFactor}
+                                <span className="font-black text-sm" style={{ color: calcResult.color }}>
+                                    Class {calcResult.lifeClass} / ×{calcResult.lifeFactor}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
@@ -476,7 +498,7 @@ export default function ProposalPage() {
                                     <span className="font-bold text-sm">Health Class / Factor</span>
                                 </div>
                                 <span className="font-black text-sm text-indigo-400">
-                                    Class {premium.healthClass} / ×{premium.healthFactor}
+                                    Class {calcResult.healthClass} / ×{calcResult.healthFactor}
                                 </span>
                             </div>
                         </div>
@@ -485,12 +507,12 @@ export default function ProposalPage() {
                         <div className="pt-6 border-t border-white/10">
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Premium Breakdown</p>
                             <div className="space-y-2 mb-4">
-                                {premium.life > 0    && <div className="flex justify-between text-sm"><span className="text-slate-400">Life</span><span className="font-bold">{fc(premium.life)}</span></div>}
-                                {premium.cir > 0     && <div className="flex justify-between text-sm"><span className="text-slate-400">CIR</span><span className="font-bold">{fc(premium.cir)}</span></div>}
-                                {premium.accident > 0 && <div className="flex justify-between text-sm"><span className="text-slate-400">Accident</span><span className="font-bold">{fc(premium.accident)}</span></div>}
+                                {calcResult.lifePremium > 0    && <div className="flex justify-between text-sm"><span className="text-slate-400">Life</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>}
+                                {calcResult.cirPremium > 0     && <div className="flex justify-between text-sm"><span className="text-slate-400">CIR</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>}
+                                {calcResult.accPremium > 0 && <div className="flex justify-between text-sm"><span className="text-slate-400">Accident</span><span className="font-bold">{fc(calcResult.accPremium)}</span></div>}
                             </div>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-primary">{fc(premium.total)}</span>
+                                <span className="text-3xl font-black text-primary">{fc(calcResult.total)}</span>
                                 <span className="text-sm font-bold text-slate-500">/ year</span>
                             </div>
                         </div>
@@ -502,8 +524,8 @@ export default function ProposalPage() {
                         <div className="space-y-3">
                             {parseInt(form.age) > 45 && <p className="text-sm text-slate-500 flex gap-2"><Info size={16} className="shrink-0 text-amber-500" /> Age {form.age} → higher rate band applies.</p>}
                             {form.conditions.length >= 2 && <p className="text-sm text-slate-500 flex gap-2"><AlertCircle size={16} className="shrink-0 text-red-500" /> Co-morbidity: +{form.conditions.length >= 3 ? 40 : 20} EMR for {form.conditions.length} conditions.</p>}
-                            {emrData.habitComboEMR > 0 && <p className="text-sm text-slate-500 flex gap-2"><AlertCircle size={16} className="shrink-0 text-yellow-500" /> Reducing one habit could save ~{fc(Math.round(premium.total * 0.08))} annually.</p>}
-                            {form.conditions.length === 0 && emrData.totalEMR <= 35 && <p className="text-sm text-slate-500 flex gap-2"><CheckCircle2 size={16} className="shrink-0 text-green-500" /> Excellent health profile — Class I rate applies.</p>}
+                            {calcResult.breakdown.habitCombo > 0 && <p className="text-sm text-slate-500 flex gap-2"><AlertCircle size={16} className="shrink-0 text-yellow-500" /> Reducing one habit could save ~{fc(Math.round(calcResult.total * 0.08))} annually.</p>}
+                            {form.conditions.length === 0 && calcResult.emr <= 35 && <p className="text-sm text-slate-500 flex gap-2"><CheckCircle2 size={16} className="shrink-0 text-green-500" /> Excellent health profile — Class I rate applies.</p>}
                         </div>
                     </div>
                 </div>
