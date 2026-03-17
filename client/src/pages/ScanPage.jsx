@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { createProposal } from '../utils/api';
+import { createProposal, scanDocument } from '../utils/api';
 import { calculateEMR, getRiskClass, calculatePremium } from '../utils/emr';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScanLine, Upload, Camera, CheckCircle, Loader, Activity, Shield, AlertTriangle, FileText, ChevronRight, ChevronLeft } from 'lucide-react';
-import Tesseract from 'tesseract.js';
 
 // ── The actual conditions & habits from the proposal form ──
 const HEALTH_CONDITIONS = [
@@ -98,7 +97,7 @@ export default function ScanPage() {
 
     const updateForm = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-    // ── Smart OCR: crop RIGHT side of form to read values only ──
+    // ── Smart Scanner: Use Backend Gemini Vision API ──
     const handleScanFile = async (file) => {
         if (!file) return;
         setMode('scanning');
@@ -106,97 +105,89 @@ export default function ScanPage() {
         setOcrLog('');
 
         try {
-            // Load image
-            const img = new Image();
-            const url = URL.createObjectURL(file);
-            await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = url;
-            });
+            // Fake progress bar for better UX while waiting for Gemini
+            const progressInterval = setInterval(() => {
+                setScanProgress(p => p >= 90 ? 90 : p + 5);
+            }, 500);
 
-            // Crop RIGHT half (where user fills values)
-            const canvas = canvasRef.current || document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const cropX = Math.floor(img.width * 0.4); // Start from 40% to get the values column
-            canvas.width = img.width - cropX;
-            canvas.height = img.height;
-            ctx.drawImage(img, cropX, 0, canvas.width, img.height, 0, 0, canvas.width, img.height);
-            URL.revokeObjectURL(url);
-
-            // Run OCR on cropped right-side
-            const result = await Tesseract.recognize(canvas, 'eng', {
-                logger: m => {
-                    if (m.status === 'recognizing text') setScanProgress(Math.floor(m.progress * 100));
-                }
-            });
-
-            const rawText = result.data.text;
-            setOcrLog(rawText);
-            console.log('📄 CROPPED OCR TEXT:\n', rawText);
-
-            // Extract values line by line (skip empty and known labels)
-            const labelWords = ['name', 'gender', 'place', 'residence', 'date', 'birth', 'profession',
-                'height', 'weight', 'yearly', 'income', 'source', 'base', 'cover', 'required',
-                'cir', 'accident', 'family', 'history', 'parent', 'health', 'condition',
-                'severity', 'level', 'personal', 'habit', 'consumption', 'proposal', 'form',
-                'tick', 'status', 'remark', 'borderline', 'managing', 'medicine', 'basic',
-                'middle', 'dose', 'medication', 'very', 'high', 'thyroid', 'asthma',
-                'hyper', 'tension', 'diabetes', 'mellitus', 'gut', 'disorder', 'smoking',
-                'alcoholic', 'drinks', 'tobacco', 'occasionally', 'regular', 'moderate',
-                'surviving', 'died', 'ignore', 'accidental', 'death', 'both', 'only', 'one'];
-
-            const cleanLines = rawText.split('\n')
-                .map(l => l.trim())
-                .filter(l => {
-                    if (l.length < 2) return false;
-                    const lower = l.toLowerCase();
-                    // Skip lines that are purely label words
-                    const words = lower.split(/\s+/);
-                    const allLabels = words.every(w => labelWords.includes(w) || w.length < 2);
-                    return !allLabels;
-                });
-
-            console.log('🔍 CLEANED VALUES:', cleanLines);
-
-            // Try to map cleaned values to form fields in order
-            if (cleanLines.length > 0) {
-                const updates = {};
-                cleanLines.forEach(line => {
-                    // Try to detect dates
-                    const dateMatch = line.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
-                    if (dateMatch && !updates.dob) {
-                        const yr = dateMatch[3].length === 2 ? '20' + dateMatch[3] : dateMatch[3];
-                        updates.dob = `${yr}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
-                        return;
-                    }
-                    // Try to detect pure numbers (income, height, weight, cover)
-                    const numMatch = line.replace(/[,\s₹]/g, '').match(/^(\d+)$/);
-                    if (numMatch) {
-                        const n = parseInt(numMatch[1]);
-                        if (n > 100000 && !updates.income) { updates.income = n.toString(); return; }
-                        if (n >= 100 && n <= 250 && !updates.height) { updates.height = n.toString(); return; }
-                        if (n >= 30 && n <= 200 && !updates.weight) { updates.weight = n.toString(); return; }
-                        if (n > 200 && !updates.lifeCover) { updates.lifeCover = n.toString(); return; }
-                    }
-                    // Try to detect gender
-                    const gLow = line.toLowerCase();
-                    if ((gLow === 'male' || gLow === 'female' || gLow === 'other') && !updates.gender) {
-                        updates.gender = gLow; return;
-                    }
-                    // Otherwise treat as name if it looks like text
-                    if (/^[a-zA-Z\s.]+$/.test(line) && line.length > 2 && !updates.name) {
-                        updates.name = line.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-                    }
-                });
-
-                setForm(prev => ({ ...prev, ...updates }));
+            // Call the backend Gemini Scanner
+            const extractedData = await scanDocument(file);
+            
+            clearInterval(progressInterval);
+            setScanProgress(100);
+            console.log('✅ GEMINI EXTRACTED DATA:', extractedData);
+            
+            // Map the Gemini JSON schema to our React form state
+            const updates = {};
+            
+            if (extractedData.basic_details) {
+                const bd = extractedData.basic_details;
+                if (bd.name) updates.name = bd.name;
+                
+                const gLow = (bd.gender || '').toLowerCase();
+                if (gLow === 'male' || gLow === 'female' || gLow === 'other') updates.gender = gLow;
+                
+                if (bd.date_of_birth) updates.dob = bd.date_of_birth.replace(/\//g, '-');
+                if (bd.place_of_residence) updates.residence = bd.place_of_residence;
+                if (bd.profession) updates.profession = bd.profession;
+                
+                if (bd.height_cm) updates.height = bd.height_cm.toString();
+                if (bd.weight_kg) updates.weight = bd.weight_kg.toString();
+                
+                if (bd.yearly_income) updates.income = bd.yearly_income.toString().replace(/[,\s₹]/g, '');
+                
+                if (bd.base_cover_required) updates.lifeCover = bd.base_cover_required.toString().replace(/[,\s₹]/g, '');
+                if (bd.cir_cover_required) updates.cirCover = bd.cir_cover_required.toString().replace(/[,\s₹]/g, '');
+                if (bd.accident_cover_required) updates.accidentCover = bd.accident_cover_required.toString().replace(/[,\s₹]/g, '');
             }
 
+            if (extractedData.family_history && extractedData.family_history.parent_status) {
+                const p = extractedData.family_history.parent_status.toLowerCase();
+                if (p.includes('both surviving') || p.includes('alive')) updates.parentStatus = 'alive_healthy';
+                else if (p.includes('only one') || p.includes('after')) updates.parentStatus = 'deceased_after_60';
+                else if (p.includes('both died') || p.includes('before')) updates.parentStatus = 'deceased_before_60';
+            }
+
+            if (extractedData.health_conditions) {
+                const hc = extractedData.health_conditions;
+                if (hc.thyroid !== undefined && hc.thyroid !== null) updates.thyroid = Number(hc.thyroid);
+                if (hc.asthma !== undefined && hc.asthma !== null) updates.asthma = Number(hc.asthma);
+                if (hc.hyper_tension !== undefined && hc.hyper_tension !== null) updates.hypertension = Number(hc.hyper_tension);
+                if (hc.diabetes_mellitus !== undefined && hc.diabetes_mellitus !== null) updates.diabetes = Number(hc.diabetes_mellitus);
+                if (hc.gut_disorder !== undefined && hc.gut_disorder !== null) updates.gut_disorder = Number(hc.gut_disorder);
+            }
+
+            if (extractedData.personal_habits) {
+                const mapHabit = (val) => {
+                    const v = (val || '').toLowerCase();
+                    if (v.includes('never') || !v || v === 'none') return 'never';
+                    if (v.includes('occasion')) return 'occasional';
+                    if (v.includes('moderate')) return 'moderate';
+                    if (v.includes('heavy') || v.includes('high')) return 'heavy';
+                    return 'never';
+                };
+                
+                updates.smoking = mapHabit(extractedData.personal_habits.smoking);
+                updates.alcohol = mapHabit(extractedData.personal_habits.alcoholic_drinks);
+                updates.tobacco = mapHabit(extractedData.personal_habits.tobacco);
+            }
+            
+            if (extractedData.occupation_risk) {
+                const oc = extractedData.occupation_risk.toLowerCase();
+                if (oc.includes('desk') || oc.includes('office')) updates.occupation = 'desk_job';
+                else if (oc.includes('light')) updates.occupation = 'light_manual';
+                else if (oc.includes('moderate') || oc.includes('public carrier')) updates.occupation = 'moderate_physical';
+                else if (oc.includes('heavy')) updates.occupation = 'heavy_manual';
+                else if (oc.includes('hazardous') || oc.includes('oil')) updates.occupation = 'hazardous';
+                else if (oc.includes('extreme') || oc.includes('pilot') || oc.includes('navy')) updates.occupation = 'extreme_risk';
+            }
+
+            setForm(prev => ({ ...prev, ...updates }));
             setMode('scanned');
+
         } catch (error) {
-            console.error('OCR Failed:', error);
-            alert('Scan failed. Please try a clearer image or fill the form manually.');
+            console.error('Scan Failed:', error);
+            alert(error.message || 'Scan failed. Please try a clearer image or fill the form manually.');
             setMode('form');
         }
     };

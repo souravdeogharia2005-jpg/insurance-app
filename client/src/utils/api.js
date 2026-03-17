@@ -195,5 +195,32 @@ export async function forgotPassword(email) {
     }
 }
 
+export async function scanDocument(file) {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('document', file);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes for API delay
+
+    try {
+        const res = await fetch(API + '/scan', {
+            method: 'POST',
+            body: formData,
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to scan document');
+        return data.data; // The extracted JSON
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') throw new Error('Scan timed out. The server might be waking up or image is too large.');
+        throw err;
+    }
+}
+
 export function logout() { removeToken(); }
 export { getToken };

@@ -6,6 +6,8 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const { GoogleGenAI } = require('@google/genai');
 require('dotenv').config();
 
 // Standard fetch support for all Node versions
@@ -112,6 +114,98 @@ function proposalToRow(p, userId) {
         status: p.status || 'pending', source: p.source || 'manual',
     };
 }
+
+// ==========================================
+// SCAN & OCR ROUTE (Google Gemini API)
+// ==========================================
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+
+app.post('/api/scan', authenticateToken, upload.single('document'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No document file provided' });
+        }
+
+        if (!process.env.GEMINI_API_KEY) {
+            console.error('❌ GEMINI_API_KEY is not defined in environment');
+            return res.status(500).json({ error: 'Scanner API key is not configured' });
+        }
+
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const imageBase64 = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype;
+
+        const prompt = `You are an intelligent document extraction system processing a handwritten insurance proposal form. 
+Analyze the provided image and extract the data into a strict JSON format.
+
+Rules:
+1. Return ONLY valid JSON. No markdown formatting, no conversational text.
+2. For text fields (Name, Gender, etc.), transcribe the handwriting exactly.
+3. For the "Health Conditions" table, look for tick marks. The number corresponds to the severity level column (1, 2, 3, or 4). If a row has no tick, output 0.
+4. For "Personal Habits", extract the column header where the tick mark is placed (e.g., "Occasionally", "Regular (high dose)"). If empty, output "None".
+5. If a field is entirely blank, output null.
+
+Use this exact JSON schema:
+{
+  "basic_details": {
+    "name": "",
+    "gender": "",
+    "date_of_birth": "",
+    "profession": "",
+    "yearly_income": "",
+    "base_cover_required": "",
+    "cir_cover_required": "",
+    "accident_cover_required": "",
+    "height_cm": null,
+    "weight_kg": null,
+    "place_of_residence": ""
+  },
+  "family_history": {
+    "parent_status": ""
+  },
+  "health_conditions": {
+    "thyroid": 0,
+    "asthma": 0,
+    "hyper_tension": 0,
+    "diabetes_mellitus": 0,
+    "gut_disorder": 0
+  },
+  "personal_habits": {
+    "smoking": "",
+    "alcoholic_drinks": "",
+    "tobacco": ""
+  },
+  "occupation_risk": ""
+}`;
+
+        console.log(`📷 Sending document to Gemini Vision API... (${Math.round(req.file.size/1024)}KB)`);
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+                prompt,
+                {
+                    inlineData: {
+                        data: imageBase64,
+                        mimeType: mimeType 
+                    }
+                }
+            ],
+            config: {
+                responseMimeType: "application/json", 
+            }
+        });
+
+        const extractedData = JSON.parse(response.text);
+        console.log("✅ Form successfully scanned by Gemini:", typeof extractedData === 'object' ? 'Parsed OK' : 'Parse Failed');
+        
+        res.json({ success: true, data: extractedData });
+
+    } catch (error) {
+        console.error("Error scanning document:", error);
+        res.status(500).json({ error: 'Failed to process document with AI' });
+    }
+});
 
 // ==========================================
 // AUTH ROUTES
