@@ -19,7 +19,7 @@ const fetch = (...args) => {
 };
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
-const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com'; // Use env or fallback
+const SENDER_EMAIL = process.env.EMAIL_USER || 'souravdeogharia2005@gmail.com'; // Must be verified in Brevo
 const SERVER_VERSION = '4.0.0';
 
 const app = express();
