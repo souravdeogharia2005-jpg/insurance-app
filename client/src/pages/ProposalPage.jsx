@@ -3,47 +3,75 @@ import { useApp } from '../context/AppContext';
 import { createProposal } from '../utils/api';
 import { calculateInsurance } from '../utils/emr';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, BrainCircuit, Activity, Heart, User, CheckCircle2, ChevronRight, ChevronLeft, AlertCircle, TrendingUp, Info } from 'lucide-react';
-import '../styles/MobileTheme.css';
+import { 
+    Shield, User, Scale, Activity, Heart, Info, 
+    ChevronRight, ChevronLeft, CheckCircle2, 
+    AlertTriangle, Download, TrendingUp, Laptop, 
+    Plane, Car, Anchor, Factory, HardHat
+} from 'lucide-react';
+import { jsPDF } from "jspdf";
 
-const STEPS = [
-    { id: 'personal', title: 'Personal', icon: 'person' },
-    { id: 'family',   title: 'Family',   icon: 'group' },
-    { id: 'medical',  title: 'Medical',  icon: 'medical_services' },
+const DISEASES = [
+    { id: 'thyroid', label: 'Thyroid', icon: '🦋' },
+    { id: 'asthma', label: 'Asthma', icon: '🫁' },
+    { id: 'hypertension', label: 'Hypertension', icon: '🫀' },
+    { id: 'diabetes', label: 'Diabetes', icon: '🩸' },
+    { id: 'gut_disorder', label: 'Gut Disorder', icon: '🔬' }
 ];
 
-const CONDITIONS = [
-    { id: 'thyroid',      label: 'Thyroid',        icon: '🦋', emrPts: [2.5, 5, 7.5, 10] },
-    { id: 'asthma',       label: 'Asthma',          icon: '🫁', emrPts: [5, 7.5, 10, 12.5] },
-    { id: 'hypertension', label: 'Hypertension',    icon: '🫀', emrPts: [5, 7.5, 10, 15] },
-    { id: 'diabetes',     label: 'Diabetes Mellitus', icon: '🩸', emrPts: [10, 15, 20, 25] },
-    { id: 'gut_disorder', label: 'Gut Disorder',    icon: '🔬', emrPts: [5, 10, 15, 20] },
-];
-
-const SEVERITY_LABELS = [
-    { level: 1, label: 'Borderline (no medicine)' },
-    { level: 2, label: 'Basic medicines' },
-    { level: 3, label: 'Middle dose medication' },
-    { level: 4, label: 'Very high dose medication' },
+const OCCUPATIONS = [
+    { id: 'normal', label: 'Normal (Desk Job)', icon: Laptop },
+    { id: 'athlete', label: 'Athlete', icon: Activity },
+    { id: 'pilot', label: 'Pilot', icon: Plane },
+    { id: 'driver', label: 'Driver', icon: Car },
+    { id: 'merchant_navy', label: 'Merchant Navy', icon: Anchor },
+    { id: 'oil_industry', label: 'Oil/Gas Industry', icon: Factory },
+    { id: 'hazardous', label: 'Hazardous (Mining/Industrial)', icon: HardHat },
 ];
 
 export default function ProposalPage() {
-    const { t, fc } = useApp();
+    const { t, fc, user: authUser } = useApp();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
     const [submittedId, setSubmittedId] = useState(null);
 
     const [form, setForm] = useState({
-        name: '', age: '', gender: 'male', dob: '', residence: 'urban',
-        profession: '', incomeSource: '', bmi: '',
-        height: '', weight: '',
-        parentStatus: 'both_above_65',
-        conditions: [], severities: {},
-        smoking: 'never', alcohol: 'never', tobacco: 'never',
-        occupation: 'desk_job',
-        income: 500000, lifeCover: 1000000, cirCover: 500000, accidentCover: 1000000
+        // 1. Basic Details
+        name: '', gender: 'male', dob: '', age: '', 
+        residence: 'urban', occupation: 'normal', 
+        income: 500000, incomeSource: 'Salary',
+        
+        // 2. Body Details
+        height: '', weight: '', bmi: '',
+        
+        // 3. Family History
+        parentStatus: 'both_below_65', // Default: parents died <65 (Wait, user said both parents alive <65 -> 0)
+        
+        // 4. Health Conditions
+        diseases: {}, // { thyroid: 2, asthma: 1 }
+        
+        // 5. Personal Habits
+        smoking: 0, alcohol: 0, tobacco: 0,
+        
+        // 6. Insurance Requirement
+        lifeCover: 10000000, // 1 Cr default
+        cirCover: 5000000,  // 50 L default
+        accCover: 5000000,  // 50 L default
     });
 
+    // Auto-calculate Age
+    useEffect(() => {
+        if (form.dob) {
+            const birth = new Date(form.dob);
+            const now = new Date();
+            let age = now.getFullYear() - birth.getFullYear();
+            const m = now.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+            setForm(prev => ({ ...prev, age: age > 0 ? age : '' }));
+        }
+    }, [form.dob]);
+
+    // Auto-calculate BMI
     useEffect(() => {
         if (form.height && form.weight) {
             const hm = parseFloat(form.height) / 100;
@@ -52,65 +80,44 @@ export default function ProposalPage() {
         }
     }, [form.height, form.weight]);
 
-    const mapHabit = (val) => {
-        const v = (val || '').toLowerCase();
-        if (v === 'social' || v === 'occasional' || v === 'former') return 1;
-        if (v === 'moderate' || v === 'regular') return 2;
-        if (v === 'heavy' || v === 'high') return 3;
-        return 0;
-    };
-
-    const getUserForCalc = () => ({
-        age: parseInt(form.age) || 30,
-        bmi: parseFloat(form.bmi) || 0,
-        family: form.parentStatus,
-        diseases: {
-            thyroid: form.conditions.includes('thyroid') ? (form.severities['thyroid'] || 1) : 0,
-            asthma: form.conditions.includes('asthma') ? (form.severities['asthma'] || 1) : 0,
-            hypertension: form.conditions.includes('hypertension') ? (form.severities['hypertension'] || 1) : 0,
-            diabetes: form.conditions.includes('diabetes') ? (form.severities['diabetes'] || 1) : 0,
-            gut: form.conditions.includes('gut_disorder') ? (form.severities['gut_disorder'] || 1) : 0,
-        },
-        habits: {
-            smoking: mapHabit(form.smoking),
-            alcohol: mapHabit(form.alcohol),
-            tobacco: mapHabit(form.tobacco || 'never')
-        },
-        occupation: form.occupation || 'desk_job',
-        lifeCover: parseFloat(form.lifeCover) || 0,
-        cirCover: parseFloat(form.cirCover) || 0,
-        accidentCover: parseFloat(form.accidentCover) || 0
-    });
-
-    const [calcResult, setCalcResult] = useState(calculateInsurance(getUserForCalc()));
+    const [calcResult, setCalcResult] = useState(calculateInsurance(form));
 
     useEffect(() => {
-        setCalcResult(calculateInsurance(getUserForCalc()));
+        setCalcResult(calculateInsurance(form));
     }, [form]);
 
-    const toggleCondition = (id) => {
-        const newConditions = form.conditions.includes(id)
-            ? form.conditions.filter(c => c !== id)
-            : [...form.conditions, id];
-        const newSeverities = { ...form.severities };
-        if (!newConditions.includes(id)) delete newSeverities[id];
-        else if (!newSeverities[id]) newSeverities[id] = 1;
-        setForm({ ...form, conditions: newConditions, severities: newSeverities });
+    // Cover Validation
+    const getEligibilityWarning = () => {
+        const age = parseInt(form.age);
+        const income = parseFloat(form.income);
+        const cover = parseFloat(form.lifeCover);
+        if (!age || !income || !cover) return null;
+
+        let multiplier = 10;
+        if (age <= 35) multiplier = 25;
+        else if (age <= 45) multiplier = 20;
+        else if (age <= 55) multiplier = 15;
+        
+        if (cover > income * multiplier) return `Requested cover exceeds eligibility (${multiplier}× income max)`;
+        return null;
     };
 
-    const handleSeverity = (id, val) => {
-        setForm({ ...form, severities: { ...form.severities, [id]: parseInt(val) } });
+    const handleDiseaseToggle = (id) => {
+        const newDiseases = { ...form.diseases };
+        if (newDiseases[id]) delete newDiseases[id];
+        else newDiseases[id] = 1; // Default level 1
+        setForm({ ...form, diseases: newDiseases });
     };
 
-    const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1));
-    const prev = () => setStep(s => Math.max(s - 1, 0));
+    const handleSeverity = (id, level) => {
+        setForm({ ...form, diseases: { ...form.diseases, [id]: level } });
+    };
 
     const handleSubmit = async () => {
         setLoading(true);
         try {
             const payload = {
                 ...form,
-                bmi: parseFloat(form.bmi) || 0,
                 emrScore: calcResult.emr,
                 emrBreakdown: calcResult.breakdown,
                 riskClass: 'Class ' + calcResult.lifeClass,
@@ -120,346 +127,424 @@ export default function ProposalPage() {
                     accident: calcResult.accPremium,
                     total: calcResult.total,
                     lifeFactor: calcResult.lifeFactor,
-                    healthFactor: calcResult.healthFactor,
-                    lifeClass: calcResult.lifeClass,
-                    healthClass: calcResult.healthClass
                 },
-                source: 'manual',
+                source: 'manual'
             };
             const res = await createProposal(payload);
             setSubmittedId(res.id);
         } catch (err) {
-            alert('Submission failed');
+            alert('Error: ' + err.message);
         } finally {
             setLoading(false);
         }
     };
 
+    const generatePDF = () => {
+        const doc = new jsPDF();
+        doc.setFontSize(22);
+        doc.text("AegisAI Underwriting Report", 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Proposer Name: ${form.name}`, 20, 40);
+        doc.text(`Age/Gender: ${form.age} / ${form.gender}`, 20, 48);
+        doc.text(`Occupation: ${form.occupation}`, 20, 56);
+        doc.text(`---------------------------------------`, 20, 64);
+        doc.text(`EMR Score: ${calcResult.emr}`, 20, 72);
+        doc.text(`Risk Class: ${calcResult.lifeClass}`, 20, 80);
+        doc.text(`Total Yearly Premium: ${fc(calcResult.total)}`, 20, 88);
+        doc.save(`${form.name}_Report.pdf`);
+    };
+
     if (submittedId) {
         return (
-            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 pb-24">
+            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    className="bg-white p-8 rounded-[40px] shadow-2xl shadow-blue-500/10 border border-slate-100 text-center max-w-sm w-full">
-                    <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center text-white mx-auto mb-8 shadow-xl shadow-emerald-500/30">
-                        <span className="material-symbols-outlined text-[44px] font-bold">verified</span>
+                    className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 text-center max-w-lg w-full">
+                    <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-8 shadow-xl">
+                        <CheckCircle2 size={48} />
                     </div>
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Proposal Secured</h2>
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">System ID: <span className="text-blue-600">{submittedId}</span></p>
+                    <h2 className="text-3xl font-black text-slate-900 mb-2">Policy Finalized</h2>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest mb-10 text-xs">Aegis Vault ID: {submittedId}</p>
 
-                    <div className="bg-slate-50 rounded-3xl p-6 mb-8 text-left space-y-4 border border-slate-100/50">
-                        <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Final EMR</span><span className="font-black text-slate-900 text-lg">{calcResult.emr}</span></div>
-                        <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Risk Class</span><span className="px-3 py-1 bg-white rounded-lg font-black text-[10px] border border-slate-200" style={{ color: calcResult.color }}>Class {calcResult.lifeClass}</span></div>
-                        <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Loading Factor</span><span className="text-blue-600 font-black text-sm">×{calcResult.lifeFactor}</span></div>
-                        <hr className="border-slate-200" />
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-widest"><span>Annual Premium</span><span className="text-slate-900 font-black text-xl">{fc(calcResult.total)}</span></div>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-slate-50 p-4 rounded-2xl text-left border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">EMR Class</p>
+                            <p className="text-xl font-black text-slate-900" style={{ color: calcResult.color }}>Class {calcResult.lifeClass}</p>
+                        </div>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-left border border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Yearly Total</p>
+                            <p className="text-xl font-black text-slate-900">{fc(calcResult.total)}</p>
+                        </div>
                     </div>
 
-                    <div className="space-y-3">
-                        <button onClick={() => window.location.href = '/dashboard'} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-extrabold shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 active:scale-95 transition-all">
-                            View Dashboard
-                            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    <div className="space-y-4">
+                        <button onClick={generatePDF} className="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-black transition hover:bg-slate-200 flex items-center justify-center gap-2">
+                            <Download size={20} /> Download report
                         </button>
-                        <button onClick={() => window.location.reload()} className="w-full py-4 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] border-none bg-transparent">New Assessment</button>
+                        <button onClick={() => window.location.href = '/dashboard'} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black transition hover:scale-[1.02] active:scale-95 shadow-xl">
+                            Go to Dashboard
+                        </button>
                     </div>
                 </motion.div>
             </div>
         );
     }
 
+    const next = () => setStep(s => s + 1);
+    const prev = () => setStep(s => s - 1);
+
     return (
-        <div className="font-jakarta min-h-screen pb-32 bg-[#F8FAFC]">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5" onClick={() => window.location.href = '/'}>
-                    <div className="w-9 h-9 bg-aegis-blue rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <span className="material-symbols-outlined text-white text-[22px] font-bold">shield_with_heart</span>
-                    </div>
-                    <span className="font-extrabold text-lg tracking-tight">AegisAI</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button className="w-9 h-9 p-0 flex items-center justify-center text-gray-400 hover:bg-gray-50 rounded-full transition-colors border-none bg-transparent">
-                        <span className="material-symbols-outlined text-[22px]">settings</span>
-                    </button>
-                    <div className="w-9 h-9 bg-blue-50 border border-blue-100 text-aegis-blue rounded-full flex items-center justify-center font-bold text-xs">SD</div>
-                </div>
-            </header>
-
-            <main className="px-5 py-6 space-y-6">
-                {/* Title */}
-                <section className="space-y-1">
-                    <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-[0.2em]">Underwriter V4.0</p>
-                        <div className="flex gap-1.5">
-                            {STEPS.map((_, i) => (
-                                <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-blue-600' : 'bg-gray-200'}`} />
-                            ))}
+        <div className="bg-[#F8FAFC] min-h-screen pt-24 pb-32 px-4 md:px-8">
+            <div className="max-w-4xl mx-auto">
+                
+                {/* Header Section */}
+                <div className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                            <Shield size={12} /> Underwriting V5.0
                         </div>
+                        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Smart Quote Assessment</h1>
+                        <p className="text-slate-500 mt-2 font-medium">Follow the strict underwriting rules to find the perfect risk match.</p>
                     </div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Smart Quote Assessment</h1>
-                </section>
-
-                {/* Form Progress Hub */}
-                <section className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="flex px-2 py-2 gap-1 bg-slate-50/50">
-                        {STEPS.map((s, i) => (
-                            <button key={i} onClick={() => setStep(i)} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl transition-all duration-200 border-none ${step === i ? 'bg-white tab-active text-blue-600' : 'text-slate-400'}`}>
-                                <span className="material-symbols-outlined text-[18px] font-bold">{s.icon}</span>
-                                <span className={`text-[10px] ${step === i ? 'font-extrabold' : 'font-bold'}`}>{s.title}</span>
-                            </button>
+                    <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                        {Array(4).fill(0).map((_, i) => (
+                            <div key={i} className={`w-8 h-2 rounded-full transition-all ${step >= i ? 'bg-indigo-600' : 'bg-slate-100'}`} />
                         ))}
                     </div>
+                </div>
 
-                    <div className="p-6">
+                <div className="grid lg:grid-cols-5 gap-8">
+                    
+                    {/* Main Form Area */}
+                    <div className="lg:col-span-3 space-y-8">
                         <AnimatePresence mode="wait">
-                            <motion.div key={step} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
                                 
+                                {/* STEP 1: PERSONAL & BODY */}
                                 {step === 0 && (
-                                    <div className="space-y-5">
-                                        <div className="relative group">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 transition-colors group-focus-within:text-blue-500">
-                                                <span className="material-symbols-outlined text-[20px]">badge</span>
-                                            </div>
-                                            <input className="block w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all outline-none" placeholder="e.g. Sourav Deogharia" type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                                    <div className="space-y-8">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><User size={24} /></div>
+                                            <h3 className="text-xl font-black text-slate-900">Basic & Body Details</h3>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                                    <span className="material-symbols-outlined text-[20px]">cake</span>
-                                                </div>
-                                                <input className="block w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Age" type="number" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
+                                        
+                                        <div className="grid gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                                                <input className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black focus:ring-2 focus:ring-indigo-100 transition-all outline-none" placeholder="Proposer Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                                             </div>
-                                            <div className="relative">
-                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                                    <span className="material-symbols-outlined text-[20px]">wc</span>
+
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gender</label>
+                                                    <select className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black appearance-none outline-none" value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}>
+                                                        <option value="male">Male</option>
+                                                        <option value="female">Female</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
                                                 </div>
-                                                <select className="block w-full pl-12 pr-8 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-100 appearance-none outline-none" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
-                                                    <option value="male">Male</option>
-                                                    <option value="female">Female</option>
-                                                </select>
-                                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-300">
-                                                    <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                                                <div className="space-y-2 text-right">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">DOB</label>
+                                                    <input type="date" className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none" value={form.dob} onChange={e => setForm({...form, dob: e.target.value})} />
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                                <span className="material-symbols-outlined text-[20px]">work</span>
-                                            </div>
-                                            <input className="block w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" placeholder="Profession" type="text" value={form.profession} onChange={e => setForm({ ...form, profession: e.target.value })} />
-                                        </div>
-
-                                        <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100">
-                                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.15em] mb-4 pl-1">Physical Metrics</p>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-500 ml-1">Height (cm)</label>
-                                                    <input className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" placeholder="175" type="number" value={form.height} onChange={e => setForm({...form, height: e.target.value})} />
+                                            <div className="grid grid-cols-3 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Height (cm)</label>
+                                                    <input type="number" className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none" placeholder="175" value={form.height} onChange={e => setForm({...form, height: e.target.value})} />
                                                 </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-500 ml-1">Weight (kg)</label>
-                                                    <input className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 outline-none" placeholder="72" type="number" value={form.weight} onChange={e => setForm({...form, weight: e.target.value})} />
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Weight (kg)</label>
+                                                    <input type="number" className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none" placeholder="70" value={form.weight} onChange={e => setForm({...form, weight: e.target.value})} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest ml-1">Auto BMI</label>
+                                                    <div className="w-full bg-indigo-50 border-2 border-indigo-100 rounded-2xl p-4 text-sm font-black text-indigo-600 text-center">{form.bmi || '—'}</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Residence</label>
+                                                    <select className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none" value={form.residence} onChange={e => setForm({...form, residence: e.target.value})}>
+                                                        <option value="urban">Urban</option>
+                                                        <option value="rural">Rural</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Source of Income</label>
+                                                    <input className="w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none" placeholder="e.g. Salary" value={form.incomeSource} onChange={e => setForm({...form, incomeSource: e.target.value})} />
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
+                                {/* STEP 2: FAMILY & HEALTH */}
                                 {step === 1 && (
-                                    <div className="space-y-4">
-                                        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-1">Parent Health History</p>
-                                        {[
-                                            { v: 'both_above_65', label: 'Both parents (age > 65)', emr: -10, icon: 'verified' },
-                                            { v: 'one_above_65', label: 'Only one (age > 65)', emr: -5, icon: 'clinical_notes' },
-                                            { v: 'both_below_65', label: 'Both died (age < 65)', emr: +10, icon: 'error' },
-                                        ].map(opt => (
-                                            <button key={opt.v} onClick={() => setForm({ ...form, parentStatus: opt.v })}
-                                                className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${form.parentStatus === opt.v ? 'border-blue-500 bg-blue-50/50 text-blue-600' : 'border-slate-50 bg-slate-50 hover:border-slate-200'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`material-symbols-outlined ${opt.emr <= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{opt.icon}</span>
-                                                    <span className="font-bold text-xs">{opt.label}</span>
+                                    <div className="space-y-10">
+                                        <div>
+                                            <div className="flex items-center gap-4 mb-6">
+                                                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><Heart size={24} /></div>
+                                                <h3 className="text-xl font-black text-slate-900">Family & Health History</h3>
+                                            </div>
+                                            
+                                            <div className="space-y-4">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parent Health Status</label>
+                                                <div className="grid gap-3">
+                                                    {[
+                                                        { id: 'both_above_65', label: 'Both parents alive (> 65)' },
+                                                        { id: 'one_above_65', label: 'Only one parent alive (> 65)' },
+                                                        { id: 'both_below_65', label: 'Parents died (< 65) or Both Alive (<65)' },
+                                                    ].map(opt => (
+                                                        <button key={opt.id} onClick={() => setForm({...form, parentStatus: opt.id})} className={`p-4 rounded-2xl text-left border-2 transition-all font-bold text-sm ${form.parentStatus === opt.id ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200'}`}>
+                                                            {opt.label}
+                                                        </button>
+                                                    ))}
                                                 </div>
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${opt.emr < 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {opt.emr > 0 ? '+' : ''}{opt.emr}pts
-                                                </span>
-                                            </button>
-                                        ))}
+                                                <p className="text-[10px] text-slate-400 italic mt-2 ml-1">Note: Ignore Accidental Death</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Medical Conditions</label>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                                {DISEASES.map(d => (
+                                                    <button key={d.id} onClick={() => handleDiseaseToggle(d.id)} className={`flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-3 ${form.diseases[d.id] ? 'bg-indigo-50 border-indigo-600' : 'bg-slate-50 border-transparent grayscale'}`}>
+                                                        <span className="text-2xl">{d.icon}</span>
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">{d.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {Object.keys(form.diseases).map(id => {
+                                                    const d = DISEASES.find(x => x.id === id);
+                                                    return (
+                                                        <div key={id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 animate-in slide-in-from-left-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-2xl">{d.icon}</span>
+                                                                <span className="font-black text-slate-900 uppercase text-xs tracking-widest">{d.label} Severity</span>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                {[1,2,3,4].map(l => (
+                                                                    <button key={l} onClick={() => handleSeverity(id, l)} className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${form.diseases[id] === l ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 hover:text-indigo-600 border border-slate-200'}`}>L{l}</button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
+                                {/* STEP 3: HABITS & OCCUPATION */}
                                 {step === 2 && (
-                                    <div className="space-y-6">
-                                        <div className="space-y-4">
-                                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-1">Health Conditions</p>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                {CONDITIONS.map(c => (
-                                                    <button key={c.id} onClick={() => toggleCondition(c.id)}
-                                                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2 ${form.conditions.includes(c.id) ? 'border-blue-500 bg-blue-50/50' : 'border-slate-50 bg-slate-50'}`}>
-                                                        <span className="text-xl">{c.icon}</span>
-                                                        <span className="text-[10px] font-bold text-center leading-tight">{c.label}</span>
-                                                    </button>
+                                    <div className="space-y-10">
+                                        <div>
+                                            <div className="flex items-center gap-4 mb-6">
+                                                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><Activity size={24} /></div>
+                                                <h3 className="text-xl font-black text-slate-900">Lifestyle & Occupation</h3>
+                                            </div>
+
+                                            <div className="space-y-6">
+                                                {['smoking', 'alcohol', 'tobacco'].map(h => (
+                                                    <div key={h} className="space-y-3">
+                                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{h.replace('_', ' ')}</label>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {[
+                                                                { v: 0, l: 'Never' },
+                                                                { v: 1, l: 'Occas.' },
+                                                                { v: 2, l: 'Moderate' },
+                                                                { v: 3, l: 'High' }
+                                                            ].map(opt => (
+                                                                <button key={opt.v} onClick={() => setForm({...form, [h]: opt.v})} className={`py-3 rounded-xl font-black text-[10px] uppercase transition-all ${form[h] === opt.v ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>
+                                                                    {opt.l}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        {form.conditions.length > 0 && (
-                                            <div className="space-y-3 pt-2">
-                                                <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest pl-1">Define Severity</p>
-                                                {form.conditions.map(id => {
-                                                    const cond = CONDITIONS.find(c => c.id === id);
-                                                    const sev = form.severities[id] || 1;
-                                                    return (
-                                                        <div key={id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                                                            <div className="flex justify-between items-center">
-                                                                <span className="text-xs font-black">{cond.label}</span>
-                                                                <span className="text-[10px] font-black text-blue-600">+{cond.emrPts[sev-1]} EMR</span>
-                                                            </div>
-                                                            <div className="flex gap-1.5">
-                                                                {[1,2,3,4].map(l => (
-                                                                    <button key={l} onClick={() => handleSeverity(id, l)} className={`flex-1 py-1.5 rounded-lg text-[10px] font-black border transition-all ${sev === l ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-400 border-slate-100'}`}>L{l}</button>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        )}
-
-                                        <div className="space-y-4 pt-2">
-                                            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest pl-1">Life Habits</p>
+                                        <div className="space-y-6">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Occupational Risk</label>
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Smoking</label>
-                                                    <select className="w-full bg-slate-50 rounded-xl p-3 text-[10px] font-black outline-none border-none appearance-none" value={form.smoking} onChange={e => setForm({ ...form, smoking: e.target.value })}>
-                                                        <option value="never">Never</option>
-                                                        <option value="occasional">Occasional</option>
-                                                        <option value="moderate">Moderate</option>
-                                                        <option value="heavy">Heavy</option>
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase">Alcohol</label>
-                                                    <select className="w-full bg-slate-50 rounded-xl p-3 text-[10px] font-black outline-none border-none appearance-none" value={form.alcohol} onChange={e => setForm({ ...form, alcohol: e.target.value })}>
-                                                        <option value="never">Never</option>
-                                                        <option value="occasional">Occasional</option>
-                                                        <option value="moderate">Moderate</option>
-                                                        <option value="heavy">Heavy</option>
-                                                    </select>
-                                                </div>
+                                                {OCCUPATIONS.map(occ => (
+                                                    <button key={occ.id} onClick={() => setForm({...form, occupation: occ.id})} className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${form.occupation === occ.id ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
+                                                        <occ.icon size={20} />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest leading-tight">{occ.label}</span>
+                                                    </button>
+                                                ))}
                                             </div>
-                                        </div>
-
-                                        <div className="pt-2">
-                                            <button disabled={loading} onClick={handleSubmit} className="w-full bg-slate-900 text-white font-extrabold py-5 rounded-2xl shadow-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 group">
-                                                {loading ? 'Analyzing Data...' : 'Generate Quote'}
-                                                {!loading && <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">bolt</span>}
-                                            </button>
                                         </div>
                                     </div>
                                 )}
 
+                                {/* STEP 4: INSURANCE & VALIDATION */}
+                                {step === 3 && (
+                                    <div className="space-y-10">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><TrendingUp size={24} /></div>
+                                            <h3 className="text-xl font-black text-slate-900">Financial Requirements</h3>
+                                        </div>
+
+                                        <div className="grid gap-8">
+                                            <div className="bg-indigo-50 p-6 rounded-[2rem] border border-indigo-100">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <label className="text-xs font-black text-indigo-900 uppercase tracking-widest">Annual Income (INR)</label>
+                                                    <span className="text-xl font-black text-indigo-600">{fc(form.income)}</span>
+                                                </div>
+                                                <input type="range" min="100000" max="10000000" step="50000" value={form.income} onChange={e => setForm({...form, income: e.target.value})} className="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+                                            </div>
+
+                                            <div className="space-y-6">
+                                                {[
+                                                   { id: 'lifeCover', label: 'Life Cover Required', default: '100 Lakhs' },
+                                                   { id: 'cirCover', label: 'CIR Cover Required', default: '50 Lakhs' },
+                                                   { id: 'accCover', label: 'Accident Rider', default: '50 Lakhs' }
+                                                ].map(c => (
+                                                    <div key={c.id} className="space-y-2">
+                                                        <div className="flex justify-between items-center px-1">
+                                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{c.label}</label>
+                                                            <span className="text-[10px] font-black text-indigo-400">Default: {c.default}</span>
+                                                        </div>
+                                                        <input type="number" className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-sm font-black outline-none ${c.id === 'lifeCover' && getEligibilityWarning() ? 'ring-2 ring-amber-400 bg-amber-50' : ''}`} value={form[c.id]} onChange={e => setForm({...form, [c.id]: e.target.value})} />
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {getEligibilityWarning() && (
+                                                <div className="flex gap-4 p-5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-700 text-xs font-bold animate-pulse">
+                                                    <AlertTriangle className="shrink-0" />
+                                                    <p>{getEligibilityWarning()}</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button onClick={handleSubmit} disabled={loading || getEligibilityWarning()} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black transition hover:bg-slate-800 disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-3 active:scale-95 shadow-2xl">
+                                            {loading ? <Activity className="animate-spin" /> : <Shield />} Submit for Underwriting
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Navigation Buttons */}
+                                <div className="mt-12 flex items-center justify-between gap-4 pt-8 border-t border-slate-100">
+                                    {step > 0 && (
+                                        <button onClick={prev} className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black text-sm uppercase tracking-widest transition hover:bg-slate-100 flex items-center justify-center gap-2">
+                                            <ChevronLeft size={16} /> Back
+                                        </button>
+                                    )}
+                                    {step < 3 && (
+                                        <button onClick={next} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition hover:bg-indigo-700 flex items-center justify-center gap-2 shadow-xl shadow-indigo-100">
+                                            Next Step <ChevronRight size={16} />
+                                        </button>
+                                    )}
+                                </div>
                             </motion.div>
                         </AnimatePresence>
-
-                        {/* Navigation Actions for Tab 1 & 2 */}
-                        {step < 2 && (
-                            <div className="pt-4">
-                                <button onClick={() => setStep(step + 1)} className="w-full bg-blue-600 text-white font-extrabold py-5 rounded-2xl shadow-xl shadow-blue-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group">
-                                    Next Step
-                                    <span className="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                </button>
-                                {step > 0 && (
-                                    <button onClick={() => setStep(step - 1)} className="w-full mt-3 py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest border-none bg-transparent">Go Back</button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </section>
-
-                {/* Score Hub */}
-                <section className="bg-aegis-dark rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden drop-shadow-2xl">
-                    <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                            <h2 className="text-[10px] font-bold tracking-wider uppercase opacity-80">Live Underwriting Score</h2>
-                        </div>
-                        <div className="text-[9px] font-black bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 uppercase tracking-widest">Aegis Core v4</div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-6">
-                        <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
-                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                                <circle className="text-slate-700/50" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" strokeWidth="8"></circle>
-                                <circle cx="50" cy="50" fill="transparent" r="42" stroke={calcResult.color} strokeDasharray="264" strokeDashoffset={264 - (264 * Math.min(calcResult.emr, 200) / 200)} strokeLinecap="round" strokeWidth="8" className="transition-all duration-1000 ease-out progress-glow"></circle>
-                            </svg>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                <span className="text-2xl font-black tracking-tight" style={{ color: calcResult.color }}>{calcResult.emr}</span>
-                                <span className="text-[7px] font-bold uppercase opacity-50 tracking-tighter">EMR</span>
+                    {/* Sidebar: Real-time Analysis */}
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 text-indigo-500 opacity-20"><BrainCircuit size={120} /></div>
+                            
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400 mb-8">Live Risk Engine</p>
+                                
+                                <div className="flex items-center gap-10 mb-10">
+                                    <div className="relative w-32 h-32 flex items-center justify-center">
+                                        <svg className="w-full h-full -rotate-90">
+                                            <circle cx="64" cy="64" r="58" className="stroke-white/10" strokeWidth="10" fill="none" />
+                                            <circle cx="64" cy="64" r="58" className="transition-all duration-1000 ease-out" 
+                                                stroke={calcResult.color} strokeWidth="10" 
+                                                strokeDasharray={364} strokeDashoffset={364 - (364 * Math.min(calcResult.emr, 200) / 200)} 
+                                                strokeLinecap="round" fill="none" />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-4xl font-black">{calcResult.emr}</span>
+                                            <span className="text-[8px] font-black opacity-40 uppercase tracking-widest">EMR pts</span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="mb-4">
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Class</p>
+                                            <p className="text-2xl font-black" style={{ color: calcResult.color }}>{calcResult.lifeClass}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Loading</p>
+                                            <p className="text-2xl font-black text-indigo-400">×{calcResult.lifeFactor}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-6 border-t border-white/5">
+                                    <div className="flex justify-between text-xs font-bold"><span className="opacity-40">BMI Impact</span><span>+{calcResult.breakdown.bmi}</span></div>
+                                    <div className="flex justify-between text-xs font-bold"><span className="opacity-40">Disease Addon</span><span>+{calcResult.breakdown.health}</span></div>
+                                    <div className="flex justify-between text-xs font-bold"><span className="opacity-40">Co-morbidity</span><span>+{calcResult.breakdown.comorbidity}</span></div>
+                                    <div className="flex justify-between text-xs font-bold"><span className="opacity-40">Habit Loading</span><span>+{calcResult.breakdown.lifestyle}</span></div>
+                                    <div className="flex justify-between text-xs font-bold"><span className="opacity-40">Habit Combo</span><span>+{calcResult.breakdown.habitCombo}</span></div>
+                                </div>
+
+                                {/* Step-by-Step Audit */}
+                                <div className="mt-8 space-y-4 bg-white/5 p-6 rounded-2xl border border-white/10">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Step-by-Step Audit</p>
+                                    <div className="space-y-3 text-[10px] font-bold text-slate-400">
+                                        <div className="flex gap-3"><span className="text-indigo-400">Step 1:</span> <span>BMI {form.bmi} → +{calcResult.breakdown.bmi} EMR</span></div>
+                                        <div className="flex gap-3"><span className="text-indigo-400">Step 2:</span> <span>Family Hist → {calcResult.breakdown.family} EMR</span></div>
+                                        <div className="flex gap-3"><span className="text-indigo-400">Step 3:</span> <span>Health Cond → +{calcResult.breakdown.health} EMR</span></div>
+                                        <div className="flex gap-3"><span className="text-indigo-400">Step 4:</span> <span>Co-morbidity → +{calcResult.breakdown.comorbidity} EMR</span></div>
+                                        <div className="flex gap-3"><span className="text-indigo-400">Step 5:</span> <span>Total EMR → {calcResult.emr} (Class {calcResult.lifeClass})</span></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-8 p-5 bg-white/5 rounded-2xl border border-white/5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <TrendingUp size={16} className="text-indigo-400" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Smart Insight</span>
+                                    </div>
+                                    {calcResult.emr > 20 ? (
+                                        <p className="text-[10px] font-medium leading-relaxed opacity-60">"Reducing BMI to 23 and quitting habits could lower your class from {calcResult.lifeClass} to I, saving approx ₹22,000/yr."</p>
+                                    ) : (
+                                        <p className="text-[10px] font-medium leading-relaxed opacity-60">"Excellent profile. Standard preferred rates apply. No extra loading required."</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                        <div className="flex-1 space-y-3">
-                            <div className="glass-card rounded-xl p-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-purple-400 text-lg">analytics</span>
-                                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-tighter">Live Analysis</span>
+
+                        <div className="bg-white rounded-[2.5rem] p-10 border border-slate-200">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 mb-8 flex items-center gap-2">
+                                <Info size={16} className="text-indigo-600" /> Underwriting Guidelines
+                            </h4>
+                            <div className="space-y-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1" />
+                                    <p>Severity L1-L4 must be defined for each selected disease.</p>
                                 </div>
-                                <span className="text-blue-400 font-black text-[10px]">{calcResult.lifeClass}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="glass-card rounded-xl p-2 px-3 text-center">
-                                    <p className="text-[7px] font-bold text-slate-400 uppercase mb-1">Class</p>
-                                    <p className="text-xs font-black text-white">{calcResult.lifeClass}</p>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1" />
+                                    <p>Co-morbidity applies extra +40 if 3+ diseases exist.</p>
                                 </div>
-                                <div className="glass-card rounded-xl p-2 px-3 text-center">
-                                    <p className="text-[7px] font-bold text-slate-400 uppercase mb-1">Impact</p>
-                                    <p className="text-xs font-black text-blue-400">×{calcResult.lifeFactor}</p>
+                                <div className="flex items-start gap-4">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1" />
+                                    <p>High habit combinations trigger +40 multiplier penalty.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </section>
-            </main>
 
-            {/* Bottom Floating Nav */}
-            <div className="fixed bottom-6 inset-x-0 px-5 z-50">
-                <nav className="bottom-nav-glass border border-slate-200/50 flex justify-around items-center pt-3 pb-4 px-6 rounded-[28px] shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-                    <button className="flex flex-col items-center gap-1 text-blue-600 transition-all border-none bg-transparent" onClick={() => window.location.href = '/'}>
-                        <div className="p-1.5 rounded-xl bg-blue-50">
-                            <span className="material-symbols-outlined text-[22px] font-bold">home</span>
-                        </div>
-                        <span className="text-[9px] font-extrabold uppercase tracking-tighter">Home</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1 text-slate-400 transition-all border-none bg-transparent" onClick={() => window.location.href = '/dashboard'}>
-                        <div className="p-1.5">
-                            <span className="material-symbols-outlined text-[22px]">grid_view</span>
-                        </div>
-                        <span className="text-[9px] font-bold uppercase tracking-tighter">Dash</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1 -mt-10 border-none bg-transparent" onClick={() => window.location.reload()}>
-                        <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-slate-900/30 ring-4 ring-white active:scale-95 transition-all">
-                            <span className="material-symbols-outlined text-[28px] font-light">add</span>
-                        </div>
-                        <span className="text-[9px] font-extrabold text-slate-500 mt-1 uppercase tracking-tighter">New</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1 text-slate-400 transition-all border-none bg-transparent" onClick={() => window.location.href = '/scan'}>
-                        <div className="p-1.5">
-                            <span className="material-symbols-outlined text-[22px]">search</span>
-                        </div>
-                        <span className="text-[9px] font-bold uppercase tracking-tighter">Scan</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-1 text-slate-400 transition-all border-none bg-transparent" onClick={() => window.location.href = '/admin'}>
-                        <div className="p-1.5">
-                            <span className="material-symbols-outlined text-[22px]">admin_panel_settings</span>
-                        </div>
-                        <span className="text-[9px] font-bold uppercase tracking-tighter">Admin</span>
-                    </button>
-                </nav>
+                </div>
             </div>
         </div>
     );
+}
+
+function BrainCircuit({ size }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain-circuit"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .52 8.105 4 4 0 0 0 6.136 2.127A3.001 3.001 0 1 0 12 5Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4"/><path d="M6.003 5.125A3 3 0 0 0 7 11"/><path d="M21.221 8.893a3 3 0 0 0-3.976-3.977"/><path d="M14 6.8V4"/><path d="M14.5 9h2.5"/><path d="M14 11.2V14"/><path d="M11.5 9h-2"/><path d="M18 10h1.5"/><path d="M18 12v-1.5"/><path d="M21 15v1.5"/><path d="M19.5 15H21"/><path d="M15 15h1.5"/><path d="M15 12v3"/></svg>
+    )
 }

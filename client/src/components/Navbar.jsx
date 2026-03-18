@@ -160,6 +160,7 @@ export default function Navbar() {
             </AnimatePresence>
 
 
+
             {/* Modal Components */}
             <AnimatePresence>
                 {showPasswordModal && (

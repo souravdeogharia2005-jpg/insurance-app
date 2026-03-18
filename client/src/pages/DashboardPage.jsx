@@ -36,272 +36,347 @@ export default function DashboardPage() {
     const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9'];
 
     const filteredProposals = proposals.filter(p => filter === 'all' || p.status === filter);
-
     return (
-        <div className="min-h-screen bg-[#F8FAFC] pb-20">
-            <div className="max-w-7xl mx-auto px-5 py-8 space-y-10">
-                {/* Desktop Dashboard */}
-                <div className="hidden md:block space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                        <div className="space-y-1">
-                            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Recommendation Engine</h1>
-                            <p className="text-slate-400 text-sm font-bold">Personalized policy analytics based on AI risk profiling.</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => navigate('/proposal')} className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all">
-                                <span className="material-symbols-outlined text-[20px]">add_circle</span> {t('newProposal')}
-                            </button>
-                            <button onClick={() => navigate('/admin')} className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-black transition-all">
-                                <span className="material-symbols-outlined text-[20px]">admin_panel_settings</span> {t('admin')}
-                            </button>
-                        </div>
+        <div className="bg-[#F8FAFC] min-h-screen">
+            {/* Desktop Dashboard */}
+            <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Recommendation Engine</h1>
+                        <p className="text-slate-500 mt-1 font-medium">Personalized policy analytics based on AI risk profiling.</p>
                     </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => navigate('/proposal')} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all text-slate-700">
+                            <span className="material-symbols-outlined text-lg">add_circle</span> {t('newProposal')}
+                        </button>
+                        <button onClick={() => navigate('/admin')} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all">
+                            <span className="material-symbols-outlined text-lg">admin_panel_settings</span> {t('admin')}
+                        </button>
+                    </div>
+                </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        <div className="lg:col-span-8 space-y-8">
-                            {/* Stats */}
-                            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                                <div className="bg-slate-900 px-8 py-3 flex items-center justify-between">
-                                    <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.25em] flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-xs text-blue-400">verified</span> AegisAI System Monitor
-                                    </p>
-                                    <span className="text-[10px] font-black text-white/30 tracking-widest">STABLE v5.0</span>
-                                </div>
-                                <div className="p-8">
-                                    <div className="grid grid-cols-4 gap-6">
-                                        {[
-                                            { label: t('totalProposals'), value: proposals.length, icon: 'description', color: 'text-blue-600', bg: 'bg-blue-50' },
-                                            { label: t('approvalRate'), value: approvalRate + '%', icon: 'check_circle', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                                            { label: t('avgEMR'), value: avgEMR, icon: 'monitor_heart', color: 'text-amber-600', bg: 'bg-amber-50' },
-                                            { label: t('totalPremium'), value: fc(totalPremium), icon: 'payments', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                                        ].map((s, i) => (
-                                            <div key={i} className="bg-slate-50/50 p-5 rounded-3xl border border-slate-50">
-                                                <div className="flex items-center gap-2.5 mb-3">
-                                                    <div className={`${s.bg} ${s.color} w-9 h-9 rounded-xl flex items-center justify-center`}>
-                                                        <span className="material-symbols-outlined text-[18px] font-bold">{s.icon}</span>
-                                                    </div>
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-tight">{s.label}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-8 space-y-6">
+                        {/* Stats */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="bg-slate-900 px-6 py-3">
+                                <p className="text-[10px] font-bold text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-xs">verified</span> AegisAI Dashboard Overview
+                                </p>
+                            </div>
+                            <div className="p-8">
+                                <div className="grid grid-cols-4 gap-6">
+                                    {[
+                                        { label: t('totalProposals'), value: proposals.length, icon: 'description', color: 'text-blue-600', bg: 'bg-blue-50' },
+                                        { label: t('approvalRate'), value: approvalRate + '%', icon: 'check_circle', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                        { label: t('avgEMR'), value: avgEMR, icon: 'monitor_heart', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                                        { label: t('totalPremium'), value: fc(totalPremium), icon: 'payments', color: 'text-purple-600', bg: 'bg-purple-50' },
+                                    ].map((s, i) => (
+                                        <div key={i} className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className={`${s.bg} ${s.color} w-9 h-9 rounded-xl flex items-center justify-center`}>
+                                                    <span className="material-symbols-outlined text-xl">{s.icon}</span>
                                                 </div>
-                                                <p className="text-xl font-black text-slate-900">{s.value}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</p>
                                             </div>
-                                        ))}
+                                            <p className="text-2xl font-black text-slate-900">{s.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Analytics Charts */}
+                        {proposals.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                                    <h3 className="font-bold text-slate-900 text-sm mb-6 uppercase tracking-wider">Risk Class Distribution</h3>
+                                    <div className="h-64 w-full text-xs">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={riskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 600 }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 600 }} />
+                                                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '12px' }} />
+                                                <Bar dataKey="value" fill="#0F172A" radius={[6, 6, 0, 0]} barSize={40} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                                    <h3 className="font-bold text-slate-900 text-sm mb-6 uppercase tracking-wider">Proposal Statuses</h3>
+                                    <div className="h-64 w-full text-xs flex items-center justify-center">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={statusData} cx="50%" cy="50%" innerRadius={70} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
+                                                    {statusData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '12px' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
                                     </div>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Analytics Charts */}
-                            {proposals.length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8">
-                                        <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest mb-6">Risk Distribution</h3>
-                                        <div className="h-64 w-full text-xs">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <BarChart data={riskData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 700, fontSize: 10 }} />
-                                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontWeight: 700, fontSize: 10 }} />
-                                                    <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', fontWeight: 800 }} />
-                                                    <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8 flex flex-col items-center">
-                                        <h3 className="w-full text-left font-black text-slate-900 text-xs uppercase tracking-widest mb-6">Status Breakdown</h3>
-                                        <div className="h-64 w-full text-xs">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" label={({ name, percent }) => `${name}`}>
-                                                        {statusData.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', fontWeight: 800 }} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                        {/* Info Banner for Edits */}
+                        <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl flex items-start gap-4 shadow-sm">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                                <span className="material-symbols-outlined">info</span>
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-indigo-900 text-sm">Need to update a proposal?</h4>
+                                <p className="text-sm text-indigo-700/80 mt-1 leading-relaxed">
+                                    To ensure data integrity, submitted proposals cannot be directly edited. If you need to make changes to your existing proposals, please email our support team at <a href="mailto:porschegt651@gmail.com" className="font-bold underline hover:text-indigo-900 transition-colors">porschegt651@gmail.com</a>.
+                                </p>
+                            </div>
+                        </div>
 
-                            {/* Table */}
-                            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                                <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
-                                    <h3 className="font-extrabold text-slate-900 tracking-tight text-lg">Comprehensive History</h3>
+                        {/* Table */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+                                <h3 className="font-extrabold text-slate-900">All Proposals</h3>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Filter:</span>
                                     <select
-                                        className="bg-white border border-slate-100 text-[10px] font-black py-2 px-4 rounded-xl uppercase tracking-widest outline-none cursor-pointer text-slate-500 hover:text-slate-900 transition-all shadow-sm"
+                                        className="form-select border-slate-200 bg-slate-50 text-xs py-2 px-4 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-slate-200 transition-all cursor-pointer"
                                         value={filter}
                                         onChange={e => setFilter(e.target.value)}
                                     >
-                                        <option value="all">ALL ENTRIES</option>
-                                        <option value="pending">PENDING</option>
-                                        <option value="approved">APPROVED</option>
-                                        <option value="under_review">REVIEW</option>
+                                        <option value="all">{t('allStatus')}</option>
+                                        <option value="pending">{t('pending')}</option>
+                                        <option value="approved">{t('approved')}</option>
+                                        <option value="rejected">{t('rejected')}</option>
+                                        <option value="under_review">{t('underReview')}</option>
                                     </select>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm border-collapse">
-                                        <thead><tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                                            <th className="px-8 py-4">Index</th>
-                                            <th className="px-6 py-4">Submission</th>
-                                            <th className="px-6 py-4 text-center">EMR</th>
-                                            <th className="px-6 py-4 text-center">Risk Class</th>
-                                            <th className="px-6 py-4 text-right">Premium</th>
-                                            <th className="px-6 py-4 text-center">Status</th>
-                                        </tr></thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {filteredProposals.length === 0 && <tr><td colSpan={6} className="px-8 py-16 text-center text-slate-300 font-black uppercase tracking-widest text-xs">No records indexed</td></tr>}
-                                            {filteredProposals.map(p => (
-                                                <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
-                                                    <td className="px-8 py-5 font-bold text-slate-300 text-[10px]">{p.id.slice(0, 8)}...</td>
-                                                    <td className="px-6 py-5">
-                                                        <p className="font-extrabold text-slate-900 text-sm group-hover:text-blue-600 transition-colors uppercase tracking-tight">{p.name || 'Anonymous'}</p>
-                                                        <p className="text-[10px] text-slate-400 font-bold">{fd(p.createdAt)}</p>
-                                                    </td>
-                                                    <td className="px-6 py-5 text-center"><span className={`font-black text-base ${emrColor(p.emrScore)}`}>{p.emrScore || '—'}</span></td>
-                                                    <td className="px-6 py-5 text-center"><span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${p.riskClass?.includes('IV') ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>{p.riskClass || '—'}</span></td>
-                                                    <td className="px-6 py-5 text-right font-black text-slate-900">{p.premium ? fc(p.premium.total) : '—'}</td>
-                                                    <td className="px-6 py-5 text-center"><span className={`px-3 py-1.5 ${statusColor(p.status)} rounded-xl text-[9px] font-black uppercase tracking-widest`}>{fmtStatus(p.status)}</span></td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">ID</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">Name</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">EMR</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">Risk</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">Premium</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">Status</th>
+                                            <th className="px-8 py-4 font-bold text-slate-400 uppercase text-[10px] tracking-widest">Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {filteredProposals.length === 0 && <tr><td colSpan={7} className="px-8 py-16 text-center text-slate-400 font-medium">{t('noProposals')}</td></tr>}
+                                        {filteredProposals.map(p => (
+                                            <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-8 py-5 font-mono text-[10px] text-slate-400">#{p.id.slice(-6)}</td>
+                                                <td className="px-8 py-5 font-bold text-slate-900">{p.name || '—'}</td>
+                                                <td className="px-8 py-5"><span className={`font-black ${emrColor(p.emrScore)}`}>{p.emrScore || '—'}</span></td>
+                                                <td className="px-8 py-5">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase ${p.riskClass?.includes('IV') || p.riskClass?.includes('V') ? 'bg-red-50 text-red-600' : p.riskClass === 'Class III' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                        {p.riskClass || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-5 font-black text-slate-900">
+                                                    <span className={user?.role === 'admin' ? '' : 'select-none transition-all cursor-not-allowed'} style={user?.role === 'admin' ? {} : { filter: 'blur(8px)' }}>
+                                                        {p.premium ? fc(p.premium.total) : '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-5">
+                                                    <span className={`px-3 py-1 text-[10px] font-bold rounded-full tracking-wider uppercase ${statusColor(p.status)}`}>
+                                                        {fmtStatus(p.status)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-5 text-slate-400 font-medium">{fd(p.createdAt)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Sidebar */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-8">User Risk Profile</h3>
+                            <div className="relative aspect-square flex items-center justify-center mb-8">
+                                <div className="absolute inset-0 bg-slate-50 rounded-full flex items-center justify-center">
+                                    <div className="w-48 h-48 bg-slate-100 rounded-full flex items-center justify-center">
+                                        <div className="w-24 h-24 bg-white shadow-inner rounded-full" />
+                                    </div>
+                                </div>
+                                <svg className="w-full h-full relative z-10 opacity-80" viewBox="0 0 100 100">
+                                    <polygon fill="none" stroke="#e2e8f0" strokeWidth="0.5" points="50,10 90,40 75,90 25,90 10,40" />
+                                    <polygon fill="none" stroke="#e2e8f0" strokeWidth="0.5" points="50,30 70,45 65,70 35,70 30,45" />
+                                    <polygon fill="rgba(15, 23, 42, 0.15)" stroke="#0F172A" strokeWidth="1" points="50,15 85,38 70,85 40,80 20,42" />
+                                    <text x="50" y="8" textAnchor="middle" fontSize="4" className="fill-slate-400 font-bold uppercase tracking-widest">HEALTH</text>
+                                    <text x="94" y="42" textAnchor="start" fontSize="4" className="fill-slate-400 font-bold uppercase tracking-widest">FINANCE</text>
+                                    <text x="78" y="96" textAnchor="middle" fontSize="4" className="fill-slate-400 font-bold uppercase tracking-widest">LIFESTYLE</text>
+                                    <text x="22" y="96" textAnchor="middle" fontSize="4" className="fill-slate-400 font-bold uppercase tracking-widest">TRAVEL</text>
+                                    <text x="6" y="42" textAnchor="end" fontSize="4" className="fill-slate-400 font-bold uppercase tracking-widest">PROPERTY</text>
+                                </svg>
+                            </div>
+                            <div className="space-y-5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Overall Risk Level</span>
+                                    <span className={`text-xs font-black tracking-widest px-3 py-1 rounded-full ${avgEMR <= 110 ? 'bg-emerald-50 text-emerald-600' : avgEMR <= 130 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                        {avgEMR <= 110 ? 'LOW' : avgEMR <= 130 ? 'MODERATE' : 'HIGH'}
+                                    </span>
+                                </div>
+                                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all duration-1000 ${avgEMR <= 110 ? 'bg-emerald-500' : avgEMR <= 130 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: Math.min(avgEMR, 200) / 2 + '%' }} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right Sidebar */}
-                        <div className="lg:col-span-4 space-y-8">
-                            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 p-8">
-                                <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-8">AI Bio-Risk Profiler</h3>
-                                <div className="relative aspect-square flex items-center justify-center mb-8">
-                                    <div className="absolute inset-0 bg-blue-50/50 rounded-full flex items-center justify-center">
-                                        <div className="w-48 h-48 bg-blue-100/50 rounded-full flex items-center justify-center"><div className="w-24 h-24 bg-blue-200/50 rounded-full" /></div>
-                                    </div>
-                                    <svg className="w-full h-full relative z-10 opacity-60" viewBox="0 0 100 100">
-                                        <polygon fill="none" stroke="#cbd5e1" strokeWidth="0.5" points="50,10 90,40 75,90 25,90 10,40" />
-                                        <polygon fill="none" stroke="#cbd5e1" strokeWidth="0.5" points="50,30 70,45 65,70 35,70 30,45" />
-                                        <polygon fill="#3b82f6" fillOpacity="0.1" stroke="#3b82f6" strokeWidth="1" points="50,15 85,38 70,85 40,80 20,42" />
-                                        <text x="50" y="8" textAnchor="middle" fontSize="3" className="fill-slate-400 font-black uppercase">MEDICAL</text>
-                                        <text x="94" y="42" textAnchor="start" fontSize="3" className="fill-slate-400 font-black uppercase">FINANCE</text>
-                                        <text x="78" y="96" textAnchor="middle" fontSize="3" className="fill-slate-400 font-black uppercase">HABITS</text>
-                                        <text x="22" y="96" textAnchor="middle" fontSize="3" className="fill-slate-400 font-black uppercase">LIFESTYLE</text>
-                                        <text x="6" y="42" textAnchor="end" fontSize="3" className="fill-slate-400 font-black uppercase">HISTORY</text>
-                                    </svg>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] mb-8">{t('riskDistribution')}</h3>
+                            <div className="h-48 flex items-end justify-between gap-3 px-2">
+                                {['Class I', 'Class II', 'Class III', 'Class IV', 'Class V'].map(cls => {
+                                    const count = riskCounts[cls] || 0;
+                                    const maxCount = Math.max(...Object.values(riskCounts), 1);
+                                    const height = count > 0 ? Math.max((count / maxCount) * 100, 10) : 5;
+                                    const isHighest = count === maxCount && count > 0;
+                                    return (
+                                        <div key={cls} className="flex-1 flex flex-col items-center gap-3 group">
+                                            <span className="text-[10px] font-bold text-slate-400">{count}</span>
+                                            <div className={`w-full ${isHighest ? 'bg-slate-900 shadow-lg shadow-slate-100' : 'bg-slate-100 group-hover:bg-slate-200'} rounded-2xl transition-all duration-500`} style={{ height: height + '%' }} />
+                                            <span className={`text-[9px] uppercase tracking-tighter ${isHighest ? 'font-black text-slate-900' : 'font-bold text-slate-400'}`}>{cls.replace('Class ', '')}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-900 rounded-[2rem] p-8 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -tr-10 group-hover:scale-150 transition-transform duration-1000" />
+                            <div className="relative z-10 flex items-start gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white">
+                                    <span className="material-symbols-outlined text-xl">lightbulb</span>
                                 </div>
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aggregate Risk</span>
-                                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${avgEMR <= 110 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                                            {avgEMR <= 110 ? 'Standard' : 'Elevated'}
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-3 bg-slate-50 rounded-full overflow-hidden p-1 border border-slate-100">
-                                        <div className={`h-full rounded-full transition-all duration-1000 ${avgEMR <= 110 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: Math.min(avgEMR/2, 100) + '%' }} />
-                                    </div>
-                                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/50">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Aegis AI Summary</p>
-                                        <p className="text-[11px] text-slate-600 font-bold leading-relaxed">
-                                            {proposals.length > 0 ? `Detected ${proposals.length} signatures with an average EMR of ${avgEMR}. Core risk is within acceptable parameters.` : 'Awaiting data ingestion for profile analysis.'}
-                                        </p>
-                                    </div>
+                                <div>
+                                    <p className="text-sm font-bold text-white tracking-wide">AI Insight</p>
+                                    <p className="text-xs text-slate-400 mt-2 leading-relaxed font-medium">
+                                        {proposals.length > 0 ? `Based on ${proposals.length} proposals, your average EMR is ${avgEMR}. ${avgEMR <= 110 ? 'Exceptional risk profile! Most proposals qualify for standard preferred rates.' : 'Consider reviewing certain lifestyle factors to further optimize your premium.'}` : 'Generate your first proposal to unlock personalized AI risk insights.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Mobile Dashboard */}
-                <div className="md:hidden space-y-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg">
-                                <span className="material-symbols-outlined">person</span>
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Operator</p>
-                                <h1 className="text-xl font-extrabold text-slate-900 leading-none mt-1">{user?.name?.split(' ')[0] || 'Aegis Admin'}</h1>
-                            </div>
+            {/* Mobile Dashboard */}
+            <div className="md:hidden pb-24 px-4 pt-6 bg-[#F8FAFC] min-h-screen">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-slate-100">
+                            <span className="material-symbols-outlined text-slate-900 font-bold">person</span>
                         </div>
-                        <button className="w-11 h-11 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 shadow-sm relative">
-                            <span className="material-symbols-outlined">notifications</span>
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full border-2 border-white" />
+                        <div>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Dashboard</p>
+                            <h1 className="text-xl font-black text-slate-900 leading-none">{user?.name?.split(' ')[0] || 'User'}</h1>
+                        </div>
+                    </div>
+                    <button className="relative w-10 h-10 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-900 transition-colors">
+                        <span className="material-symbols-outlined">notifications</span>
+                        <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
+                    </button>
+                </div>
+
+                <div className="bg-slate-900 text-white rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden mb-8">
+                    <div className="relative z-10">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">AegisAI Risk Assessment</p>
+                        <div className="flex items-baseline gap-2 mb-6">
+                            <span className="text-5xl font-black">{avgEMR}</span>
+                            <span className="text-xs font-bold text-indigo-400 tracking-widest uppercase">EMR Score</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${avgEMR <= 110 ? 'bg-emerald-400' : avgEMR <= 130 ? 'bg-amber-400' : 'bg-red-400'} animate-pulse`} />
+                            <span className={`text-[11px] font-black uppercase tracking-widest ${avgEMR <= 110 ? 'text-emerald-400' : avgEMR <= 130 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {avgEMR <= 110 ? 'Low Risk Profile' : avgEMR <= 130 ? 'Moderate Risk' : 'High Risk Alert'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="absolute right-[-10%] top-[-10%] w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
+                </div>
+
+                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1 mb-6">Service Hub</h2>
+                <div className="grid grid-cols-4 gap-4 mb-10">
+                    {[
+                        { icon: 'add_moderator', label: 'Proposal', to: '/proposal' },
+                        { icon: 'document_scanner', label: 'Scan', to: '/scan' },
+                        { icon: 'admin_panel_settings', label: 'Admin', to: '/admin' },
+                        { icon: 'psychology', label: 'Advice', to: '/dashboard' },
+                    ].map((a, i) => (
+                        <button key={i} onClick={() => navigate(a.to)} className="flex flex-col items-center gap-3">
+                            <div className="w-16 h-16 rounded-[1.5rem] bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-900 group active:scale-90 transition-all">
+                                <span className="material-symbols-outlined font-medium text-2xl">{a.icon}</span>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{a.label}</span>
                         </button>
-                    </div>
+                    ))}
+                </div>
 
-                    <div className="bg-slate-900 text-white rounded-[40px] p-8 shadow-2xl relative overflow-hidden group">
-                        <div className="relative z-10 flex flex-col gap-6">
-                            <div className="space-y-1">
-                                <h3 className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em]">Bio-Risk Index</h3>
-                                <div className="flex items-baseline gap-2">
-                                    <span className="text-5xl font-black tracking-tighter">{avgEMR}</span>
-                                    <span className="text-blue-400 text-xs font-black uppercase tracking-widest">EMR SCORE</span>
+                <div className="grid grid-cols-2 gap-4 mb-10">
+                    {[
+                        { label: 'Proposals', value: proposals.length, icon: 'description', color: 'text-blue-600', bg: 'bg-blue-50' },
+                        { label: 'Approval', value: approvalRate + '%', icon: 'check_circle', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    ].map((s, i) => (
+                        <div key={i} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                            <div className={`${s.bg} ${s.color} w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-active:scale-95`}><span className="material-symbols-outlined text-xl">{s.icon}</span></div>
+                            <p className="text-2xl font-black text-slate-900">{s.value}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{s.label}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex items-center justify-between mb-6 px-1">
+                    <h2 className="text-lg font-black text-slate-900">Recent Activity</h2>
+                    <select
+                        className="bg-transparent border-none text-[10px] font-black text-indigo-600 uppercase tracking-[0.15em] outline-none cursor-pointer"
+                        value={filter}
+                        onChange={e => setFilter(e.target.value)}
+                    >
+                        <option value="all">View All</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                    </select>
+                </div>
+
+                <div className="space-y-4">
+                    {filteredProposals.length === 0 && (
+                        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-dashed border-slate-200 text-center">
+                            <span className="material-symbols-outlined text-slate-200 text-5xl mb-4">folder_open</span>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{t('noProposals')}</p>
+                            <button onClick={() => navigate('/proposal')} className="mt-4 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] underline decoration-2 underline-offset-4">{t('newProposal')}</button>
+                        </div>
+                    )}
+                    {filteredProposals.map(p => (
+                        <div key={p.id} className="bg-white p-5 rounded-[2.25rem] shadow-sm border border-slate-100 flex gap-5 active:scale-[0.98] transition-all">
+                            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                                <span className="material-symbols-outlined text-2xl">shield</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start gap-2">
+                                    <h4 className="font-extrabold text-slate-900 text-sm truncate">{p.name || 'Anonymous Applicant'}</h4>
+                                    <span className={`px-2.5 py-1 ${statusColor(p.status)} text-[8px] font-black rounded-full uppercase tracking-widest whitespace-nowrap`}>
+                                        {fmtStatus(p.status).split(' ')[0]}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-medium mt-1">Premium: <span className={`font-black text-slate-900 ${user?.role === 'admin' ? '' : 'select-none transition-all'}`} style={user?.role === 'admin' ? {} : { filter: 'blur(6px)' }}>{p.premium ? fc(p.premium.total) : '—'}</span></p>
+                                <div className="mt-4 w-full bg-slate-50 h-2 rounded-full overflow-hidden border border-slate-100/50">
+                                    <div className={`h-full rounded-full transition-all duration-700 ${p.emrScore <= 110 ? 'bg-emerald-500' : p.emrScore <= 130 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: Math.min(p.emrScore || 50, 200) / 2 + '%' }} />
+                                </div>
+                                <div className="flex justify-between mt-2">
+                                    <p className="text-[9px] font-black text-slate-400 tracking-wider">EMR: {p.emrScore || '—'}</p>
+                                    <p className="text-[9px] font-black text-slate-400 tracking-wider">{p.riskClass?.replace('Class ', '') || '—'}</p>
                                 </div>
                             </div>
-                            
-                            <div className="flex items-center gap-4 bg-white/5 rounded-2xl p-4 border border-white/5">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center text-white shadow-lg">
-                                    <span className="material-symbols-outlined text-[20px]">verified_user</span>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Current Status</p>
-                                    <p className={`text-xs font-black uppercase ${avgEMR <= 110 ? 'text-emerald-400' : 'text-blue-400'}`}>{avgEMR <= 110 ? 'Standard Class' : 'Preferred Plus'}</p>
-                                </div>
-                            </div>
                         </div>
-                        <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000" />
-                    </div>
-
-                    <div className="space-y-4">
-                        <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Protocols</h2>
-                        <div className="grid grid-cols-4 gap-4">
-                            {[
-                                { icon: 'add_moderator', label: 'New', to: '/proposal', bg: 'bg-emerald-50', c: 'text-emerald-600' },
-                                { icon: 'document_scanner', label: 'Scan', to: '/scan', bg: 'bg-blue-50', c: 'text-blue-600' },
-                                { icon: 'admin_panel_settings', label: 'Admin', to: '/admin', bg: 'bg-slate-100', c: 'text-slate-900' },
-                                { icon: 'psychology', label: 'AI', to: '/dashboard', bg: 'bg-indigo-50', c: 'text-indigo-600' },
-                            ].map((a, i) => (
-                                <button key={i} onClick={() => navigate(a.to)} className="flex flex-col items-center gap-3 active:scale-95 transition-all">
-                                    <div className={`${a.bg} ${a.c} w-16 h-16 rounded-[24px] shadow-sm flex items-center justify-center`}>
-                                        <span className="material-symbols-outlined text-[24px] font-bold">{a.icon}</span>
-                                    </div>
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{a.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between px-2">
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Latest Records</h2>
-                            <button className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">View All</button>
-                        </div>
-                        <div className="space-y-4">
-                            {filteredProposals.slice(0, 3).map(p => (
-                                <div key={p.id} className="bg-white p-5 rounded-[32px] shadow-sm border border-slate-100 flex gap-4 active:bg-slate-50 transition-colors">
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0">
-                                        <span className="material-symbols-outlined">shield</span>
-                                    </div>
-                                    <div className="flex-1 space-y-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="font-exrabold text-slate-900 text-sm tracking-tight">{p.name || 'Anonymous Submission'}</h4>
-                                                <p className="text-[10px] text-slate-400 font-bold">{fd(p.createdAt)}</p>
-                                            </div>
-                                            <span className={`px-3 py-1 ${statusColor(p.status)} text-[9px] font-black rounded-xl uppercase tracking-widest`}>{fmtStatus(p.status)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="text-xl font-black text-slate-900 tracking-tight">{p.emrScore}</span>
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">EMR</span>
-                                            </div>
-                                            <p className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{p.riskClass}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </div>
         </div>

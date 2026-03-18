@@ -4,5 +4,3 @@ node_modules/
 client/dist/
 server/node_modules/
 client/node_modules/
-server/data/
-*.log
