@@ -155,7 +155,7 @@ export function calculateInsurance(user) {
   // ✅ Loading
   let lifePremium = Math.round(lifeBase + (lifeBase * (lifeFactor * 0.25)));
   let cirPremium = Math.round(cirBase + (cirBase * (healthFactor * 0.30)));
-  let accPremium = Math.round(accBase);
+  let accPremium = Math.round(accBase + (accBase * (lifeFactor * 0.25)));
 
   // Risk Color Mapping
   const colorMap = {

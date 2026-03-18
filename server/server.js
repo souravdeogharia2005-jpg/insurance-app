@@ -250,6 +250,7 @@ function calculateInsurance(user) {
   // ✅ Loading
   let lifePremium = lifeBase + (lifeBase * (lifeFactor * 0.25));
   let cirPremium = cirBase + (cirBase * (healthFactor * 0.30));
+  let accPremium = accBase + (accBase * (lifeFactor * 0.25));
 
   return {
     emr,
@@ -259,8 +260,8 @@ function calculateInsurance(user) {
     healthFactor,
     lifePremium,
     cirPremium,
-    accPremium: accBase,
-    total: lifePremium + cirPremium + accBase
+    accPremium: accPremium,
+    total: lifePremium + cirPremium + accPremium
   };
 }
 
