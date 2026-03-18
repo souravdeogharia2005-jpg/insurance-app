@@ -5,7 +5,7 @@
 
 export function calculateInsurance(user) {
   let emr = 0;
-  let breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0 };
+  let breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0, occupation: 0 };
 
   // ✅ BMI
   let bmiPts = 0;
@@ -20,9 +20,8 @@ export function calculateInsurance(user) {
 
   // ✅ Family History
   let famPts = 0;
-  if (user.family === "both_above_65") famPts = -10;
-  else if (user.family === "one_above_65") famPts = -5;
-  else if (user.family === "both_below_65") famPts = 10;
+  const famMap = { "both_above_65": -10, "one_above_65": -5, "both_below_65": 10 };
+  famPts = famMap[user.parentStatus] || famMap[user.family] || 0;
   emr += famPts;
   breakdown.family = famPts;
 
@@ -38,11 +37,13 @@ export function calculateInsurance(user) {
   let diseaseCount = 0;
   let healthPts = 0;
 
-  if (user.diseases) {
-      for (let d in user.diseases) {
-        let severity = user.diseases[d];
-        if (severity > 0 && diseasePoints[d]) {
-          healthPts += diseasePoints[d][severity - 1];
+  if (user.diseases || user.severities) {
+      const data = user.severities || user.diseases;
+      for (let d in data) {
+        let severity = data[d];
+        const key = d === 'gut' ? 'gut_disorder' : d; // Handle legacy 'gut' id
+        if (severity > 0 && diseasePoints[key]) {
+          healthPts += diseasePoints[key][severity - 1];
           diseaseCount++;
         }
       }
@@ -58,19 +59,18 @@ export function calculateInsurance(user) {
   breakdown.comorbidity = comorbPts;
 
   // ✅ Habits
-  const habitPoints = [5, 10, 15];
+  const habitPointsMap = { "never": 0, "occasional": 5, "moderate": 10, "heavy": 15 };
   let habitCount = 0;
   let lifePts = 0;
 
-  if (user.habits) {
-      for (let h in user.habits) {
-        let level = user.habits[h];
-        if (level > 0) {
-          lifePts += habitPoints[level - 1];
-          habitCount++;
-        }
-      }
-  }
+  const habits = ['smoking', 'alcohol', 'tobacco'];
+  habits.forEach(h => {
+    const val = user[h];
+    if (val && val !== 'never') {
+      lifePts += habitPointsMap[val] || 0;
+      habitCount++;
+    }
+  });
   emr += lifePts;
   breakdown.lifestyle = lifePts;
 
@@ -80,6 +80,16 @@ export function calculateInsurance(user) {
   if (habitCount >= 3) comboPts = 40;
   emr += comboPts;
   breakdown.habitCombo = comboPts;
+
+  // ✅ Occupation Risk
+  const occPoints = {
+    desk_job: 0, light_manual: 0,
+    moderate_physical: 15, heavy_manual: 15, merchant_navy: 15, oil_industry: 15, hazardous: 15, athlete: 15,
+    pilot: 30, extreme_risk: 30
+  };
+  let occupationPts = occPoints[user.occupation] || 0;
+  emr += occupationPts;
+  breakdown.occupation = occupationPts;
 
   // ✅ Find Life Factor
   function getLifeFactor(emr) {
@@ -143,9 +153,9 @@ export function calculateInsurance(user) {
   let rate = getRate(user.age || 30);
 
   // ✅ Sum Assured
-  let lifeSA = user.lifeCover || 10000000; // 100 lakh
-  let cirSA = user.cirCover || 5000000;   // 50 lakh
-  let accSA = user.accidentCover || 5000000;   // 50 lakh
+  let lifeSA = user.lifeCover || 10000000;
+  let cirSA = user.cirCover || 5000000;
+  let accSA = user.accidentCover || 5000000;
 
   // ✅ Base Premium
   let lifeBase = (rate.life * lifeSA) / 1000;
@@ -157,24 +167,7 @@ export function calculateInsurance(user) {
   let cirPremium = Math.round(cirBase + (cirBase * (healthFactor * 0.30)));
   let accPremium = Math.round(accBase + (accBase * (lifeFactor * 0.25)));
 
-  // Risk Color Mapping
-  const colorMap = {
-    1:  '#10b981', 2:  '#84cc16', 3:  '#f59e0b',
-    4:  '#f97316', 6:  '#ef4444', 8:  '#dc2626',
-    10: '#b91c1c', 12: '#991b1b', 16: '#7f1d1d', 20: '#450a0a',
-  };
+  const colorMap = { 1: '#10b981', 2: '#84cc16', 3: '#f59e0b', 4: '#f97316', 6: '#ef4444', 8: '#dc2626', 10: '#b91c1c', 12: '#991b1b', 16: '#7f1d1d', 20: '#450a0a' };
 
-  return {
-    emr,
-    breakdown,
-    lifeClass,
-    healthClass,
-    lifeFactor,
-    healthFactor,
-    lifePremium,
-    cirPremium,
-    accPremium,
-    total: lifePremium + cirPremium + accPremium,
-    color: colorMap[lifeFactor] || '#ef4444'
-  };
+  return { emr, breakdown, lifeClass, healthClass, lifeFactor, healthFactor, lifePremium, cirPremium, accPremium, total: lifePremium + cirPremium + accPremium, color: colorMap[lifeFactor] || '#ef4444' };
 }

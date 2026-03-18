@@ -13,7 +13,6 @@ const STEPS = [
     { id: 'coverage', title: 'Coverage',  icon: Shield },
 ];
 
-// ✅ CORRECT: Only the 5 conditions from the real proposal form with correct severity labels
 const CONDITIONS = [
     { id: 'thyroid',      label: 'Thyroid',        icon: '🦋', emrPts: [2.5, 5, 7.5, 10] },
     { id: 'asthma',       label: 'Asthma',          icon: '🫁', emrPts: [5, 7.5, 10, 12.5] },
@@ -46,7 +45,6 @@ export default function ProposalPage() {
         income: 500000, lifeCover: 1000000, cirCover: 500000, accidentCover: 1000000
     });
 
-    // Auto-compute BMI from height & weight
     useEffect(() => {
         if (form.height && form.weight) {
             const hm = parseFloat(form.height) / 100;
@@ -60,7 +58,7 @@ export default function ProposalPage() {
         if (v === 'social' || v === 'occasional' || v === 'former') return 1;
         if (v === 'moderate' || v === 'regular') return 2;
         if (v === 'heavy' || v === 'high') return 3;
-        return 0; // never
+        return 0;
     };
 
     const getUserForCalc = () => ({
@@ -148,7 +146,6 @@ export default function ProposalPage() {
                     <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Proposal Secured!</h2>
                     <p className="text-slate-500 mb-2 text-lg">ID: <span className="font-bold text-primary">{submittedId}</span></p>
 
-                    {/* Final Result Card */}
                     <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-5 mb-6 text-left space-y-2">
                         <div className="flex justify-between text-sm"><span className="text-slate-500">EMR Score</span><span className="font-black text-slate-900 dark:text-white">{calcResult.emr}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Life Class</span><span className="font-bold" style={{ color: calcResult.color }}>Class {calcResult.lifeClass} (Factor {calcResult.lifeFactor})</span></div>
@@ -172,9 +169,8 @@ export default function ProposalPage() {
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-4 lg:py-6">
-            <div className="flex flex-col lg:flex-row gap-8">
+            <div className="flex flex-col-reverse lg:flex-row gap-8">
 
-                {/* Main Content */}
                 <div className="flex-1 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
@@ -189,7 +185,6 @@ export default function ProposalPage() {
                     </div>
 
                     <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden min-h-[500px] flex flex-col">
-                        {/* Nav Steps */}
                         <div className="flex overflow-x-auto border-b border-slate-100 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-slate-800/20">
                             {STEPS.map((s, i) => {
                                 const Icon = s.icon;
@@ -210,39 +205,88 @@ export default function ProposalPage() {
                             <AnimatePresence mode="wait">
                                 <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
 
-                                    {/* Step 0: Personal */}
                                     {step === 0 && (
-                                        <div className="space-y-8">
-                                            <div className="grid md:grid-cols-2 gap-8">
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300"><User size={14} /> Full Name</label>
-                                                    <input placeholder="e.g. Sourav Deogharia" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                                        <div className="space-y-6">
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                                    <User size={20} />
                                                 </div>
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Age (years)</label>
-                                                    <input type="number" placeholder="e.g. 30" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
+                                                <input 
+                                                    className="block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-800"
+                                                    placeholder="Full Name (eg: Shreya Deogharia)" 
+                                                    type="text" 
+                                                    value={form.name} 
+                                                    onChange={e => setForm({ ...form, name: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                                        <Activity size={20} />
+                                                    </div>
+                                                    <input 
+                                                        className="block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400" 
+                                                        placeholder="Age" 
+                                                        type="number" 
+                                                        value={form.age} 
+                                                        onChange={e => setForm({ ...form, age: e.target.value })}
+                                                    />
                                                 </div>
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Gender</label>
-                                                    <select className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none cursor-pointer" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                                        <User size={20} className="opacity-50" />
+                                                    </div>
+                                                    <select 
+                                                        className="block w-full pl-12 pr-10 py-4 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-100 transition-all appearance-none cursor-pointer"
+                                                        value={form.gender}
+                                                        onChange={e => setForm({ ...form, gender: e.target.value })}
+                                                    >
                                                         <option value="male">Male</option>
                                                         <option value="female">Female</option>
                                                     </select>
                                                 </div>
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Profession</label>
-                                                    <input placeholder="e.g. Software Engineer" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={form.profession} onChange={e => setForm({ ...form, profession: e.target.value })} />
+                                            </div>
+
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                                    <BrainCircuit size={20} />
                                                 </div>
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Height (cm)</label>
-                                                    <input type="number" placeholder="e.g. 175" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={form.height} onChange={e => setForm({ ...form, height: e.target.value })} />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Weight (kg)</label>
-                                                    <input type="number" placeholder="e.g. 72" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl p-4 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary outline-none" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} />
+                                                <input 
+                                                    className="block w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400" 
+                                                    placeholder="Profession (eg: Software Engineer)" 
+                                                    type="text" 
+                                                    value={form.profession} 
+                                                    onChange={e => setForm({ ...form, profession: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+                                                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.15em] mb-4 pl-1">Physical Metrics</p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[10px] font-bold text-slate-500 ml-1">Height (cm)</label>
+                                                        <input 
+                                                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 transition-all" 
+                                                            placeholder="175" 
+                                                            type="number"
+                                                            value={form.height}
+                                                            onChange={e => setForm({ ...form, height: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[10px] font-bold text-slate-500 ml-1">Weight (kg)</label>
+                                                        <input 
+                                                            className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-100 transition-all" 
+                                                            placeholder="72" 
+                                                            type="number"
+                                                            value={form.weight}
+                                                            onChange={e => setForm({ ...form, weight: e.target.value })}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {/* BMI Display */}
+
                                             {form.bmi > 0 && (
                                                 <div className={`flex items-center gap-3 p-4 rounded-xl ${parseFloat(form.bmi) > 28 ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'}`}>
                                                     <span className="text-2xl">{parseFloat(form.bmi) > 30 ? '⚠️' : '✅'}</span>
@@ -255,7 +299,6 @@ export default function ProposalPage() {
                                         </div>
                                     )}
 
-                                    {/* Step 1: Family History */}
                                     {step === 1 && (
                                         <div className="space-y-6">
                                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Parents Health Status</p>
@@ -280,7 +323,6 @@ export default function ProposalPage() {
                                         </div>
                                     )}
 
-                                    {/* Step 2: Medical */}
                                     {step === 2 && (
                                         <div className="space-y-8">
                                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Select applicable health conditions</p>
@@ -295,7 +337,6 @@ export default function ProposalPage() {
                                                 ))}
                                             </div>
 
-                                            {/* Severity selectors */}
                                             {form.conditions.map(id => {
                                                 const cond = CONDITIONS.find(c => c.id === id);
                                                 if (!cond) return null;
@@ -319,7 +360,6 @@ export default function ProposalPage() {
                                                 );
                                             })}
 
-                                            {/* Co-morbidity hint */}
                                             {form.conditions.length >= 2 && (
                                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
                                                     <span>⚠️</span>
@@ -332,7 +372,6 @@ export default function ProposalPage() {
                                         </div>
                                     )}
 
-                                    {/* Step 3: Lifestyle */}
                                     {step === 3 && (
                                         <div className="space-y-8">
                                             <div className="grid md:grid-cols-3 gap-6">
@@ -365,7 +404,6 @@ export default function ProposalPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Habit combo bonus */}
                                             {(() => {
                                                 const hCount = ['smoking', 'alcohol', 'tobacco'].filter(h => form[h] !== 'never').length;
                                                 if (hCount < 2) return null;
@@ -384,20 +422,19 @@ export default function ProposalPage() {
                                                 <select className="w-full bg-slate-50 dark:bg-slate-800 rounded-xl p-4 font-bold outline-none" value={form.occupation} onChange={e => setForm({ ...form, occupation: e.target.value })}>
                                                     <option value="desk_job">Desk Job / Office / IT (+0)</option>
                                                     <option value="light_manual">Light Manual Work (+0)</option>
-                                                    <option value="moderate_physical">Driver / Public Carrier (+2)</option>
-                                                    <option value="heavy_manual">Heavy Manual (+2)</option>
-                                                    <option value="merchant_navy">Merchant Navy (+3)</option>
-                                                    <option value="oil_industry">Oil & Gas / Onshore (+3)</option>
-                                                    <option value="hazardous">Hazardous (Mining, etc.) (+3)</option>
-                                                    <option value="athlete">Professional Athlete (+2)</option>
-                                                    <option value="pilot">Commercial Pilot (+6)</option>
-                                                    <option value="extreme_risk">Extreme Risk (+6)</option>
+                                                    <option value="moderate_physical">Driver / Public Carrier (+15)</option>
+                                                    <option value="heavy_manual">Heavy Manual (+15)</option>
+                                                    <option value="merchant_navy">Merchant Navy (+15)</option>
+                                                    <option value="oil_industry">Oil & Gas / Onshore (+15)</option>
+                                                    <option value="hazardous">Hazardous (Mining, etc.) (+15)</option>
+                                                    <option value="athlete">Professional Athlete (+15)</option>
+                                                    <option value="pilot">Commercial Pilot (+30)</option>
+                                                    <option value="extreme_risk">Extreme Risk (+30)</option>
                                                 </select>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Step 4: Coverage */}
                                     {step === 4 && (
                                         <div className="space-y-8">
                                             <div className="bg-primary/5 p-8 rounded-2xl border border-primary/10">
@@ -424,7 +461,6 @@ export default function ProposalPage() {
                             </AnimatePresence>
                         </div>
 
-                        {/* Footer Buttons */}
                         <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/10 flex justify-between gap-4">
                             <button onClick={prev} className={`flex items-center gap-2 px-8 py-4 rounded-xl font-bold transition-all ${step === 0 ? 'opacity-0 pointer-events-none' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500'}`}><ChevronLeft size={18} /> Back</button>
                             {step < STEPS.length - 1 ? (
@@ -438,94 +474,90 @@ export default function ProposalPage() {
                     </div>
                 </div>
 
-                {/* Sidebar Analysis */}
                 <div className="lg:w-[380px] space-y-6">
-                    <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10"><Activity size={100} /></div>
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><div className="w-2 h-2 bg-primary animate-pulse rounded-full" /> Live Risk Scoring</h3>
-
-                        {/* EMR Gauge */}
-                        <div className="flex flex-col items-center gap-4 mb-8">
-                            <div className="relative w-40 h-40 flex items-center justify-center">
-                                <svg className="w-full h-full -rotate-90">
-                                    <circle cx="80" cy="80" r="70" className="stroke-slate-800" strokeWidth="12" fill="none" />
-                                    <circle cx="80" cy="80" r="70" className="transition-all duration-1000 ease-out" stroke={calcResult.color} strokeWidth="12"
-                                        strokeDasharray={440}
-                                        strokeDashoffset={440 - (440 * Math.min(calcResult.emr, 200) / 200)}
-                                        strokeLinecap="round" fill="none" />
+                    <section className="bg-[#0F172A] rounded-[32px] p-6 text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden border border-white/5">
+                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/20 rounded-full blur-3xl"></div>
+                        <div className="flex items-center justify-between mb-6 relative">
+                            <div className="flex items-center gap-2">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <h2 className="text-xs font-bold tracking-wider uppercase opacity-80">Live Risk Scoring</h2>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-center justify-center py-4 relative">
+                            <div className="relative w-48 h-48 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    <circle className="text-slate-700/50" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" strokeWidth="6"></circle>
+                                    <circle cx="50" cy="50" fill="transparent" r="42" stroke={calcResult.color} strokeDasharray="264" strokeDashoffset="66" strokeLinecap="round" strokeWidth="10" filter={`drop-shadow(0 0 8px ${calcResult.color})`} opacity={0.2}></circle>
+                                    <circle cx="50" cy="50" fill="transparent" r="42" stroke={calcResult.color} strokeDasharray="264" strokeDashoffset={264 - (264 * Math.min(calcResult.emr, 200) / 200)} strokeLinecap="round" strokeWidth="6" className="transition-all duration-1000 ease-out" filter={`drop-shadow(0 0 6px ${calcResult.color}80)`}></circle>
                                 </svg>
-                                <div className="absolute flex flex-col items-center">
-                                    <span className="text-4xl font-black">{calcResult.emr}</span>
-                                    <span className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">EMR Score</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* EMR Breakdown */}
-                        <div className="space-y-2 mb-6 bg-white/5 rounded-2xl p-4">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">EMR Breakdown</p>
-                            {[
-                                { label: 'BMI',         val: calcResult.breakdown.bmi,        color: '#60a5fa' },
-                                { label: 'Family',       val: calcResult.breakdown.family,     color: '#a78bfa' },
-                                { label: 'Health',       val: calcResult.breakdown.health,     color: '#f87171' },
-                                { label: 'Co-morbidity', val: calcResult.breakdown.comorbidity, color: '#f59e0b' },
-                                { label: 'Lifestyle',    val: calcResult.breakdown.lifestyle,  color: '#fb923c' },
-                                { label: 'Habit Combo',  val: calcResult.breakdown.habitCombo, color: '#ef4444' },
-                            ].map(item => (
-                                item.val !== 0 && (
-                                    <div key={item.label} className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-400">{item.label}</span>
-                                        <span className="font-bold" style={{ color: item.color }}>{item.val > 0 ? '+' : ''}{item.val}</span>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                    <div className="flex items-start">
+                                        <span className="text-5xl font-extrabold tracking-tighter" style={{ color: calcResult.color }}>{calcResult.emr}</span>
                                     </div>
-                                )
-                            ))}
-                        </div>
-
-                        {/* Class & Factor */}
-                        <div className="space-y-3 mb-6">
-                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg" style={{ backgroundColor: calcResult.color + '20', color: calcResult.color }}><Shield size={16} /></div>
-                                    <span className="font-bold text-sm">Life Class / Factor</span>
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-50 mt-1">EMR SCORE</span>
                                 </div>
-                                <span className="font-black text-sm" style={{ color: calcResult.color }}>
-                                    Class {calcResult.lifeClass} / ×{calcResult.lifeFactor}
-                                </span>
                             </div>
-                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-indigo-500/20"><Heart size={16} className="text-indigo-400" /></div>
-                                    <span className="font-bold text-sm">Health Class / Factor</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mt-6">
+                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 space-y-2 border border-white/5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Life Factor</p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold text-white">Class {calcResult.lifeClass}</span>
+                                    <span className="text-emerald-400 text-xs font-black">×{calcResult.lifeFactor}</span>
                                 </div>
-                                <span className="font-black text-sm text-indigo-400">
-                                    Class {calcResult.healthClass} / ×{calcResult.healthFactor}
-                                </span>
+                            </div>
+                            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 space-y-2 border border-white/5">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Health Factor</p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold text-white">{calcResult.healthClass}</span>
+                                    <span className="text-blue-400 text-xs font-black">×{calcResult.healthFactor}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Premium Breakdown */}
-                        <div className="pt-6 border-t border-white/10">
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Premium Breakdown</p>
-                            <div className="space-y-2 mb-4">
-                                {calcResult.lifePremium > 0    && <div className="flex justify-between text-sm"><span className="text-slate-400">Life</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>}
-                                {calcResult.cirPremium > 0     && <div className="flex justify-between text-sm"><span className="text-slate-400">CIR</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>}
-                                {calcResult.accPremium > 0 && <div className="flex justify-between text-sm"><span className="text-slate-400">Accident</span><span className="font-bold">{fc(calcResult.accPremium)}</span></div>}
+                        <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/5 mt-6">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Final Premium breakdown</p>
+                            <div className="space-y-3 mb-6">
+                                {calcResult.lifePremium > 0 && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-400 font-medium">Life Protection</span>
+                                        <span className="font-bold text-white">{fc(calcResult.lifePremium)}</span>
+                                    </div>
+                                )}
+                                {calcResult.cirPremium > 0 && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-400 font-medium">Critical Illness</span>
+                                        <span className="font-bold text-white">{fc(calcResult.cirPremium)}</span>
+                                    </div>
+                                )}
+                                {calcResult.accPremium > 0 && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-400 font-medium">Accident Benefit</span>
+                                        <span className="font-bold text-white">{fc(calcResult.accPremium)}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-primary">{fc(calcResult.total)}</span>
-                                <span className="text-sm font-bold text-slate-500">/ year</span>
+                            <div className="flex flex-col gap-1 border-t border-white/10 pt-4 mt-2">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-3xl font-black text-blue-400">{fc(calcResult.total)}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">/ annually</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    {/* AI Insights */}
                     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[2rem] shadow-lg">
-                        <h4 className="font-bold mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-primary" /> AI Insights</h4>
+                        <h4 className="font-bold mb-4 flex items-center gap-2 text-slate-900 dark:text-white"><TrendingUp size={16} className="text-blue-500" /> AI Insights</h4>
                         <div className="space-y-3">
-                            {parseInt(form.age) > 45 && <p className="text-sm text-slate-500 flex gap-2"><Info size={16} className="shrink-0 text-amber-500" /> Age {form.age} → higher rate band applies.</p>}
-                            {form.conditions.length >= 2 && <p className="text-sm text-slate-500 flex gap-2"><AlertCircle size={16} className="shrink-0 text-red-500" /> Co-morbidity: +{form.conditions.length >= 3 ? 40 : 20} EMR for {form.conditions.length} conditions.</p>}
-                            {calcResult.breakdown.habitCombo > 0 && <p className="text-sm text-slate-500 flex gap-2"><AlertCircle size={16} className="shrink-0 text-yellow-500" /> Reducing one habit could save ~{fc(Math.round(calcResult.total * 0.08))} annually.</p>}
-                            {form.conditions.length === 0 && calcResult.emr <= 35 && <p className="text-sm text-slate-500 flex gap-2"><CheckCircle2 size={16} className="shrink-0 text-green-500" /> Excellent health profile — Class I rate applies.</p>}
+                            {parseInt(form.age) > 45 && <p className="text-xs text-slate-500 flex gap-2"><Info size={14} className="shrink-0 text-amber-500" /> Age {form.age} → higher rate band applies.</p>}
+                            {form.conditions.length >= 2 && <p className="text-xs text-slate-500 flex gap-2"><AlertCircle size={14} className="shrink-0 text-red-500" /> Co-morbidity: +{form.conditions.length >= 3 ? 40 : 20} EMR loading.</p>}
+                            {calcResult.breakdown.habitCombo > 0 && <p className="text-xs text-slate-500 flex gap-2"><AlertCircle size={14} className="shrink-0 text-yellow-500" /> Save ~{fc(Math.round(calcResult.total * 0.08))} by reducing habit combo.</p>}
+                            {calcResult.emr <= 20 && <p className="text-xs text-slate-500 flex gap-2"><CheckCircle2 size={14} className="shrink-0 text-green-500" /> Ideal profile — standard rates applied.</p>}
                         </div>
                     </div>
                 </div>

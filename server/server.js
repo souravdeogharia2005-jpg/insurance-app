@@ -120,18 +120,25 @@ function proposalToRow(p, userId) {
 // ==========================================
 function calculateInsurance(user) {
   let emr = 0;
+  let breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0, occupation: 0 };
 
   // ✅ BMI
-  if (user.bmi < 18) emr += 10;
-  else if (user.bmi <= 23) emr += 0;
-  else if (user.bmi <= 28) emr += 5;
-  else if (user.bmi <= 33) emr += 10;
-  else emr += 15;
+  let bmiPts = 0;
+  if (!user.bmi || user.bmi <= 0) bmiPts = 0;
+  else if (user.bmi < 18) bmiPts = 10;
+  else if (user.bmi <= 23) bmiPts = 0;
+  else if (user.bmi <= 28) bmiPts = 5;
+  else if (user.bmi <= 33) bmiPts = 10;
+  else bmiPts = 15;
+  emr += bmiPts;
+  breakdown.bmi = bmiPts;
 
   // ✅ Family History
-  if (user.family === "both_above_65") emr -= 10;
-  else if (user.family === "one_above_65") emr -= 5;
-  else if (user.family === "both_below_65") emr += 10;
+  let famPts = 0;
+  const famMap = { "both_above_65": -10, "one_above_65": -5, "both_below_65": 10 };
+  famPts = famMap[user.parentStatus] || famMap[user.family] || 0;
+  emr += famPts;
+  breakdown.family = famPts;
 
   // ✅ Diseases
   const diseasePoints = {
@@ -139,42 +146,63 @@ function calculateInsurance(user) {
     asthma: [5, 7.5, 10, 12.5],
     hypertension: [5, 7.5, 10, 15],
     diabetes: [10, 15, 20, 25],
-    gut: [5, 10, 15, 20]
+    gut_disorder: [5, 10, 15, 20]
   };
 
   let diseaseCount = 0;
+  let healthPts = 0;
 
-  if (user.diseases) {
-      for (let d in user.diseases) {
-        let severity = user.diseases[d];
-        if (severity > 0 && diseasePoints[d]) {
-          emr += diseasePoints[d][severity - 1];
-          diseaseCount++;
-        }
-      }
+  const data = user.severities || user.diseases || {};
+  for (let d in data) {
+    let severity = data[d];
+    const key = d === 'gut' ? 'gut_disorder' : d; 
+    if (severity > 0 && diseasePoints[key]) {
+      healthPts += diseasePoints[key][severity - 1];
+      diseaseCount++;
+    }
   }
+  emr += healthPts;
+  breakdown.health = healthPts;
 
   // ✅ Co-morbidity
-  if (diseaseCount === 2) emr += 20;
-  if (diseaseCount >= 3) emr += 40;
+  let comorbPts = 0;
+  if (diseaseCount === 2) comorbPts = 20;
+  if (diseaseCount >= 3) comorbPts = 40;
+  emr += comorbPts;
+  breakdown.comorbidity = comorbPts;
 
   // ✅ Habits
-  const habitPoints = [5, 10, 15];
+  const habitPointsMap = { "never": 0, "occasional": 5, "moderate": 10, "heavy": 15 };
   let habitCount = 0;
+  let lifePts = 0;
 
-  if (user.habits) {
-      for (let h in user.habits) {
-        let level = user.habits[h];
-        if (level > 0) {
-          emr += habitPoints[level - 1];
-          habitCount++;
-        }
-      }
-  }
+  const habits = ['smoking', 'alcohol', 'tobacco'];
+  habits.forEach(h => {
+    const val = user[h];
+    if (val && val !== 'never') {
+      lifePts += habitPointsMap[val] || 0;
+      habitCount++;
+    }
+  });
+  emr += lifePts;
+  breakdown.lifestyle = lifePts;
 
   // ✅ Risky habits combo
-  if (habitCount === 2) emr += 20;
-  if (habitCount >= 3) emr += 40;
+  let comboPts = 0;
+  if (habitCount === 2) comboPts = 20;
+  if (habitCount >= 3) comboPts = 40;
+  emr += comboPts;
+  breakdown.habitCombo = comboPts;
+
+  // ✅ Occupation Risk
+  const occPoints = {
+    desk_job: 0, light_manual: 0,
+    moderate_physical: 15, heavy_manual: 15, merchant_navy: 15, oil_industry: 15, hazardous: 15, athlete: 15,
+    pilot: 30, extreme_risk: 30
+  };
+  let occupationPts = occPoints[user.occupation] || 0;
+  emr += occupationPts;
+  breakdown.occupation = occupationPts;
 
   // ✅ Find Life Factor
   function getLifeFactor(emr) {
@@ -248,21 +276,11 @@ function calculateInsurance(user) {
   let accBase = (rate.accident * accSA) / 1000;
 
   // ✅ Loading
-  let lifePremium = lifeBase + (lifeBase * (lifeFactor * 0.25));
-  let cirPremium = cirBase + (cirBase * (healthFactor * 0.30));
-  let accPremium = accBase + (accBase * (lifeFactor * 0.25));
+  let lifePremium = Math.round(lifeBase + (lifeBase * (lifeFactor * 0.25)));
+  let cirPremium = Math.round(cirBase + (cirBase * (healthFactor * 0.30)));
+  let accPremium = Math.round(accBase + (accBase * (lifeFactor * 0.25)));
 
-  return {
-    emr,
-    lifeClass,
-    healthClass,
-    lifeFactor,
-    healthFactor,
-    lifePremium,
-    cirPremium,
-    accPremium: accPremium,
-    total: lifePremium + cirPremium + accPremium
-  };
+  return { emr, breakdown, lifeClass, healthClass, lifeFactor, healthFactor, lifePremium, cirPremium, accPremium, total: lifePremium + cirPremium + accPremium };
 }
 
 app.post('/api/calculate', authenticateToken, (req, res) => {
