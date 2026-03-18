@@ -21,8 +21,8 @@ html.dark {
 
 /* ===== Main Layout ===== */
 .main-content {
-  padding-top: 100px; /* Clear mobile navbar */
-  padding-bottom: 100px;
+  padding-top: 80px; /* Clear mobile navbar */
+  padding-bottom: 40px;
   max-width: 1440px;
   margin: 0 auto;
   padding-left: 16px;
@@ -31,8 +31,8 @@ html.dark {
 
 @media (min-width: 768px) {
   .main-content {
-    padding-top: 120px; /* Clear fixed desktop navbar */
-    padding-bottom: 40px;
+    padding-top: 100px; /* Clear fixed desktop navbar */
+    padding-bottom: 20px;
   }
 }
 

@@ -159,15 +159,6 @@ export default function Navbar() {
                 )}
             </AnimatePresence>
 
-            {/* Bottom Nav (Mobile) */}
-            <div className="lg:hidden fixed bottom-6 left-4 right-4 z-[100] h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/50 rounded-2xl shadow-2xl flex items-center justify-around px-4">
-                {links.map(l => (
-                    <NavLink key={l.to} to={l.to} className={({ isActive }) => `flex flex-col items-center gap-1 transition-all ${isActive ? 'text-primary scale-110 font-bold' : 'text-slate-400'}`}>
-                        <l.icon size={20} />
-                        <span className="text-[8px] uppercase tracking-widest">{l.label.split(' ')[0]}</span>
-                    </NavLink>
-                ))}
-            </div>
 
             {/* Modal Components */}
             <AnimatePresence>

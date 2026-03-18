@@ -11,7 +11,7 @@ export default function HomePage() {
         <div className="bg-[#F8FAFC] text-slate-900 antialiased overflow-x-hidden selection:bg-blue-600 selection:text-white">
             <main>
                 {/* Hero Section */}
-                <section className="relative pt-12 pb-24 lg:pt-20 lg:pb-40 overflow-hidden">
+                <section className="relative pt-8 pb-16 lg:pt-12 lg:pb-32 overflow-hidden">
                     {/* Abstract Decorative Elements */}
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 pointer-events-none">
                         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-50 rounded-full blur-[140px] opacity-60"></div>
@@ -20,7 +20,7 @@ export default function HomePage() {
 
                     <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">
                         <div className="grid lg:grid-cols-2 gap-20 items-center">
-                            <div className="flex flex-col gap-10 max-w-2xl">
+                            <div className="flex flex-col gap-6 lg:gap-8 max-w-2xl">
                                 <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white border border-slate-100 shadow-sm w-fit transition-transform hover:scale-105 duration-300">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
@@ -29,8 +29,8 @@ export default function HomePage() {
                                     <span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.25em]">Aegis Quantum v4.2 Live</span>
                                 </div>
 
-                                <div className="flex flex-col gap-6">
-                                    <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-slate-900 leading-[0.95] tracking-tighter">
+                                <div className="flex flex-col gap-4 lg:gap-6">
+                                    <h1 className="text-4xl sm:text-6xl lg:text-8xl font-black text-slate-900 leading-[0.95] tracking-tighter">
                                         Asset <span className="text-blue-600">Protection</span> Reimagined.
                                     </h1>
                                     <p className="text-lg md:text-xl text-slate-400 font-bold leading-relaxed max-w-lg">
