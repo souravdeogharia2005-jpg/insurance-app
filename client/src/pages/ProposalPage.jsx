@@ -156,10 +156,11 @@ export default function ProposalPage() {
 
     if (submittedId) {
         return (
-            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+            <div className="min-h-screen flex items-center justify-center p-6" style={{background: 'linear-gradient(160deg, #F0F7FF, #F8FBFF)'}}>
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                    className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-slate-100 text-center max-w-lg w-full">
-                    <div className="w-24 h-24 bg-emerald-500 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-8 shadow-xl">
+                    className="p-10 rounded-[2.5rem] shadow-2xl text-center max-w-lg w-full"
+                    style={{background:'white', border:'1.5px solid #BFDBFE'}}>
+                    <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-8 shadow-xl" style={{background:'linear-gradient(135deg,#22C55E,#16A34A)'}}>
                         <CheckCircle2 size={48} />
                     </div>
                     <h2 className="text-3xl font-black text-slate-900 mb-2">Policy Finalized</h2>
@@ -193,38 +194,39 @@ export default function ProposalPage() {
     const prev = () => setStep(s => s - 1);
 
     return (
-        <div className="bg-[#F8FAFC] min-h-screen pt-24 pb-32 px-4 md:px-8">
-            <div className="max-w-4xl mx-auto">
+        <div style={{background: 'linear-gradient(160deg, #F0F7FF 0%, #F8FBFF 100%)'}} className="min-h-screen pt-24 pb-32 px-4 md:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto">
                 
                 {/* Header Section */}
-                <div className="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+                <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-4" style={{background:'#EFF6FF', color:'#2563EB', border:'1px solid #BFDBFE'}}>
                             <Shield size={12} /> Underwriting V5.0
                         </div>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Smart Quote Assessment</h1>
-                        <p className="text-slate-500 mt-2 font-medium">Follow the strict underwriting rules to find the perfect risk match.</p>
+                        <h1 className="text-4xl font-black tracking-tight" style={{color:'#1E3A8A'}}>Smart Quote Assessment</h1>
+                        <p className="mt-2 font-medium" style={{color:'#475569'}}>Providing clear, accurate risk insights for your customer.</p>
                     </div>
-                    <div className="flex items-center gap-4 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3 p-2 rounded-2xl" style={{background:'white', border:'1.5px solid #BFDBFE'}}>
                         {Array(4).fill(0).map((_, i) => (
-                            <div key={i} className={`w-8 h-2 rounded-full transition-all ${step >= i ? 'bg-indigo-600' : 'bg-slate-100'}`} />
+                            <div key={i} className={`h-2 rounded-full transition-all`} style={{width: step >= i ? '40px' : '24px', background: step >= i ? '#2563EB' : '#BFDBFE'}} />
                         ))}
                     </div>
                 </div>
 
                 <div className="grid lg:grid-cols-5 gap-8">
-                    
                     {/* Main Form Area */}
                     <div className="lg:col-span-3 space-y-8">
                         <AnimatePresence mode="wait">
-                            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="bg-white rounded-[2.5rem] p-10 border border-slate-200 shadow-sm">
+                            <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                                className="rounded-[2.5rem] p-8 md:p-10"
+                                style={{background:'white', border:'1.5px solid #BFDBFE', boxShadow:'0 4px 24px rgba(37,99,235,.07)'}}>
                                 
                                 {/* STEP 1: PERSONAL & BODY */}
                                 {step === 0 && (
                                     <div className="space-y-8">
                                         <div className="flex items-center gap-4 mb-4">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><User size={24} /></div>
-                                            <h3 className="text-xl font-black text-slate-900">Basic & Body Details</h3>
+                                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:'#EFF6FF', color:'#2563EB'}}><User size={24} /></div>
+                                            <h3 className="text-xl font-black" style={{color:'#1E3A8A'}}>Basic & Body Details</h3>
                                         </div>
                                         
                                         <div className="grid gap-6">
@@ -285,8 +287,8 @@ export default function ProposalPage() {
                                     <div className="space-y-10">
                                         <div>
                                             <div className="flex items-center gap-4 mb-6">
-                                                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center"><Heart size={24} /></div>
-                                                <h3 className="text-xl font-black text-slate-900">Family & Health History</h3>
+                                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:'#EFF6FF', color:'#2563EB'}}><Heart size={24} /></div>
+                                                <h3 className="text-xl font-black" style={{color:'#1E3A8A'}}>Family & Health History</h3>
                                             </div>
                                             
                                             <div className="space-y-4">
@@ -297,7 +299,8 @@ export default function ProposalPage() {
                                                         { id: 'one_above_65', label: 'Only one parent alive (> 65)' },
                                                         { id: 'both_below_65', label: 'Parents died (< 65) or Both Alive (<65)' },
                                                     ].map(opt => (
-                                                        <button key={opt.id} onClick={() => setForm({...form, parentStatus: opt.id})} className={`p-4 rounded-2xl text-left border-2 transition-all font-bold text-sm ${form.parentStatus === opt.id ? 'bg-indigo-50 border-indigo-600 text-indigo-700' : 'bg-slate-50 border-transparent text-slate-500 hover:border-slate-200'}`}>
+                                                        <button key={opt.id} onClick={() => setForm({...form, parentStatus: opt.id})} className={`p-4 rounded-2xl text-left border-2 transition-all font-bold text-sm`}
+                                                        style={form.parentStatus === opt.id ? {background:'#EFF6FF', borderColor:'#2563EB', color:'#1E3A8A'} : {background:'#F8FBFF', borderColor:'#BFDBFE', color:'#475569'}}>
                                                             {opt.label}
                                                         </button>
                                                     ))}

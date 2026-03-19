@@ -1,77 +1,93 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { languages, currencies } from '../i18n/translations';
 import { useState } from 'react';
-import { changePassword, updateProfile, deleteAccount } from '../utils/api';
+import { changePassword, updateProfile } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Settings, User, LogOut, Menu, X, Moon, Sun, Globe, CreditCard, Key, Trash2, ChevronRight, Home, LayoutDashboard, FileText, Scan, ShieldAlert } from 'lucide-react';
+import { Shield, Settings, LogOut, X, Moon, Sun, Globe, CreditCard, Key, ChevronRight, Home, LayoutDashboard, FileText, Scan, ShieldAlert, User } from 'lucide-react';
+
+const links = [
+    { to: '/', icon: Home, label: 'Home' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/proposal', icon: FileText, label: 'New Proposal' },
+    { to: '/scan', icon: Scan, label: 'Scan' },
+    { to: '/admin', icon: ShieldAlert, label: 'Admin' },
+];
+
+const mobileLinks = [
+    { to: '/', icon: Home, label: 'Home' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/proposal', icon: FileText, label: 'Proposal' },
+    { to: '/scan', icon: Scan, label: 'Scan' },
+    { to: '/admin', icon: ShieldAlert, label: 'Admin' },
+];
 
 export default function Navbar() {
     const { user, logout, updateUser } = useAuth();
     const { theme, toggleTheme, currency, setCurrency, language, setLanguage, t } = useApp();
     const [showSettings, setShowSettings] = useState(false);
     const [showUser, setShowUser] = useState(false);
-    const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
     const [passLoading, setPassLoading] = useState(false);
     const [passMessage, setPassMessage] = useState({ type: '', text: '' });
-    const [editNameValue, setEditNameValue] = useState(user?.name || '');
-    const [nameLoading, setNameLoading] = useState(false);
-
+    const location = useLocation();
     const navigate = useNavigate();
 
     const handleLogout = () => { logout(); navigate('/login'); };
 
-    const handleUpdateName = async () => {
-        if (!editNameValue.trim() || editNameValue === user.name) return;
-        setNameLoading(true);
-        try {
-            const data = await updateProfile(editNameValue);
-            updateUser(data.user);
-        } catch (err) { console.error(err); }
-        finally { setNameLoading(false); }
-    };
-
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if (passwords.new !== passwords.confirm) return setPassMessage({ type: 'error', text: 'Passwords mismatch' });
+        if (passwords.new !== passwords.confirm) return setPassMessage({ type: 'error', text: 'Passwords do not match' });
         setPassLoading(true);
         try {
             await changePassword(passwords.current, passwords.new);
-            setPassMessage({ type: 'success', text: 'Updated!' });
+            setPassMessage({ type: 'success', text: 'Password updated!' });
             setTimeout(() => setShowPasswordModal(false), 2000);
         } catch (error) { setPassMessage({ type: 'error', text: error.message }); }
         finally { setPassLoading(false); }
     };
 
-    const links = [
-        { to: '/', icon: Home, label: t('home') },
-        { to: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
-        { to: '/proposal', icon: FileText, label: t('newProposal') },
-        { to: '/scan', icon: Scan, label: t('scan') },
-        { to: '/admin', icon: ShieldAlert, label: t('admin') },
-    ];
-
     return (
         <>
-            <header className="fixed top-0 left-0 right-0 z-[100] px-4 py-4 md:px-8 pointer-events-none">
-                <nav className="max-w-7xl mx-auto bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/50 rounded-2xl shadow-2xl pointer-events-auto h-16 md:h-20 flex items-center justify-between px-6">
+            {/* ===== Desktop / Tablet Top Navbar ===== */}
+            <header className="fixed top-0 left-0 right-0 z-[100] px-4 py-3 md:px-6 pointer-events-none">
+                <nav className="max-w-7xl mx-auto pointer-events-auto h-16 flex items-center justify-between px-5 rounded-2xl shadow-lg"
+                    style={{
+                        background: theme === 'dark' ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.97)',
+                        border: theme === 'dark' ? '1.5px solid #1E3A8A' : '1.5px solid #BFDBFE',
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                    }}>
 
                     {/* Brand */}
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-                        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                            <Shield size={22} />
+                    <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => navigate('/')}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg"
+                            style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)' }}>
+                            <Shield size={20} />
                         </div>
-                        <span className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">AegisAI</span>
+                        <div>
+                            <span className="text-lg font-black tracking-tight" style={{ color: theme === 'dark' ? '#93C5FD' : '#1E3A8A' }}>AegisAI</span>
+                            <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#22C55E', lineHeight: 1, marginTop: -1 }}>Insurance Platform</div>
+                        </div>
                     </div>
 
-                    {/* Nav Links (Desktop) */}
+                    {/* Desktop Nav Links */}
                     <div className="hidden lg:flex items-center gap-1">
                         {links.map(l => (
-                            <NavLink key={l.to} to={l.to} className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
-                                <l.icon size={16} />
+                            <NavLink key={l.to} to={l.to}
+                                className={({ isActive }) => `flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${isActive
+                                    ? 'text-white shadow-md'
+                                    : 'hover:bg-blue-50 dark:hover:bg-blue-950'
+                                    }`}
+                                style={({ isActive }) => isActive ? {
+                                    background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                                    color: 'white',
+                                } : {
+                                    color: theme === 'dark' ? '#94A3B8' : '#475569',
+                                }}>
+                                <l.icon size={15} />
                                 {l.label}
                             </NavLink>
                         ))}
@@ -79,112 +95,133 @@ export default function Navbar() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setShowMobileMenu(true)} className="lg:hidden p-2.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary">
-                            <Menu size={20} />
+                        {/* Settings button  */}
+                        <button onClick={() => setShowSettings(true)}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all"
+                            style={{
+                                background: theme === 'dark' ? 'rgba(30,58,138,.2)' : '#EFF6FF',
+                                color: '#2563EB',
+                                border: '1.5px solid #BFDBFE',
+                            }}>
+                            <Settings size={18} />
                         </button>
-                        <button onClick={() => setShowSettings(!showSettings)} className={`hidden lg:flex p-2.5 rounded-xl transition-all ${showSettings ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary'}`}><Settings size={20} /></button>
 
+                        {/* User Avatar */}
                         {user ? (
                             <div className="relative">
-                                <button onClick={() => setShowUser(!showUser)} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-primary transition-all">
-                                    <div className="font-black text-xs text-primary">{user.name?.[0].toUpperCase()}</div>
+                                <button onClick={() => setShowUser(!showUser)}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm text-white shadow-md transition-all"
+                                    style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}>
+                                    {user.name?.[0]?.toUpperCase()}
                                 </button>
-
                                 <AnimatePresence>
                                     {showUser && (
-                                        <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 origin-top-right">
-                                            <div className="mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-                                                <p className="font-black text-slate-900 dark:text-white">{user.name}</p>
-                                                <p className="text-xs text-slate-500">{user.email}</p>
+                                        <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            className="absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl p-4 origin-top-right"
+                                            style={{ background: theme === 'dark' ? '#0F172A' : 'white', border: '1.5px solid #BFDBFE' }}
+                                            onClick={e => e.stopPropagation()}>
+                                            <div className="mb-4 pb-4" style={{ borderBottom: '1px solid #BFDBFE' }}>
+                                                <p className="font-black text-sm" style={{ color: theme === 'dark' ? '#93C5FD' : '#1E3A8A' }}>{user.name}</p>
+                                                <p className="text-xs" style={{ color: '#64748B' }}>{user.email}</p>
                                             </div>
-                                            <button onClick={() => { setShowPasswordModal(true); setShowUser(false); }} className="w-full flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 transition-all">
-                                                <div className="flex items-center gap-2"><Key size={16} /> Change Pass</div>
+                                            <button onClick={() => { setShowPasswordModal(true); setShowUser(false); }}
+                                                className="w-full flex items-center justify-between p-3 rounded-xl text-sm font-semibold transition-all"
+                                                style={{ color: theme === 'dark' ? '#94A3B8' : '#475569' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <div className="flex items-center gap-2"><Key size={16} /> Change Password</div>
                                                 <ChevronRight size={14} />
                                             </button>
-                                            <button onClick={handleLogout} className="w-full flex items-center gap-2 p-3 mt-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl text-sm font-bold transition-all">
-                                                <LogOut size={16} /> {t('logout')}
+                                            <button onClick={handleLogout}
+                                                className="w-full flex items-center gap-2 p-3 mt-2 rounded-xl text-sm font-semibold transition-all"
+                                                style={{ color: '#EF4444' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,.08)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                                <LogOut size={16} /> Logout
                                             </button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                             </div>
                         ) : (
-                            <button onClick={() => navigate('/login')} className="hidden lg:block bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Sign In</button>
+                            <button onClick={() => navigate('/login')}
+                                className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                                style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)' }}>
+                                Sign In
+                            </button>
                         )}
                     </div>
                 </nav>
             </header>
 
-            {/* Mobile Menu Overlay */}
-            <AnimatePresence>
-                {showMobileMenu && (
-                    <div className="fixed inset-0 z-[120] lg:hidden flex flex-col justify-end p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowMobileMenu(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-                        <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="bg-white dark:bg-slate-900 w-full rounded-[2.5rem] p-6 shadow-2xl relative z-10 border border-slate-100 dark:border-slate-800 flex flex-col gap-6 max-h-[90vh]">
-                            <div className="flex items-center justify-between px-2">
-                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Menu</h3>
-                                <button onClick={() => setShowMobileMenu(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 active:scale-95"><X size={20} /></button>
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto px-2 pb-6 space-y-2">
-                                {links.map(l => (
-                                    <NavLink key={l.to} to={l.to} onClick={() => setShowMobileMenu(false)} className={({ isActive }) => `flex items-center gap-4 px-6 py-4 rounded-2xl text-base font-bold transition-all ${isActive ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-                                        <l.icon size={22} className={({ isActive }) => isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'} />
-                                        {l.label}
-                                    </NavLink>
-                                ))}
-                            </div>
-                            
-                            <div className="border-t border-slate-100 dark:border-slate-800 pt-6 px-2 grid grid-cols-2 gap-4">
-                                <button onClick={() => { setShowMobileMenu(false); setShowSettings(true); }} className="flex items-center justify-center gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-700"><Settings size={18} /> Settings</button>
-                                {!user ? (
-                                    <button onClick={() => { setShowMobileMenu(false); navigate('/login'); }} className="flex items-center justify-center gap-2 p-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20"><User size={18} /> Sign In</button>
-                                ) : (
-                                    <button onClick={() => { setShowMobileMenu(false); handleLogout(); }} className="flex items-center justify-center gap-2 p-4 bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400 rounded-2xl text-sm font-bold hover:bg-red-100 transition"><LogOut size={18} /> Logout</button>
-                                )}
-                            </div>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+            {/* ===== Mobile Bottom Navigation (YouTube-style) ===== */}
+            <nav className="mobile-bottom-nav lg:hidden">
+                {mobileLinks.map(l => (
+                    <NavLink key={l.to} to={l.to}
+                        className={({ isActive }) => `${isActive ? 'active' : ''}`}>
+                        {({ isActive }) => (
+                            <>
+                                <l.icon size={22} strokeWidth={isActive ? 2.5 : 1.8}
+                                    style={{ color: isActive ? '#2563EB' : '#94A3B8', transition: 'color .2s' }} />
+                                <span style={{ color: isActive ? '#2563EB' : '#94A3B8' }}>{l.label}</span>
+                            </>
+                        )}
+                    </NavLink>
+                ))}
+            </nav>
 
-            {/* Settings Overlay */}
+            {/* ===== Settings Overlay ===== */}
             <AnimatePresence>
                 {showSettings && (
                     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSettings(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl relative z-10 border border-slate-100 dark:border-slate-800">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setShowSettings(false)}
+                            className="absolute inset-0"
+                            style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }} />
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="w-full max-w-sm rounded-[2rem] p-8 shadow-2xl relative z-10"
+                            style={{ background: theme === 'dark' ? '#0F172A' : 'white', border: '1.5px solid #BFDBFE' }}>
                             <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-2xl font-black text-slate-900 dark:text-white">Settings</h3>
-                                <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"><X size={20} /></button>
+                                <h3 className="text-xl font-black" style={{ color: theme === 'dark' ? '#93C5FD' : '#1E3A8A' }}>Settings</h3>
+                                <button onClick={() => setShowSettings(false)}
+                                    className="p-2 rounded-full transition-all"
+                                    style={{ background: '#EFF6FF', color: '#2563EB' }}>
+                                    <X size={18} />
+                                </button>
                             </div>
-
-                            <div className="space-y-8">
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Appearance</h4>
-                                    <button onClick={toggleTheme} className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-transparent hover:border-primary/20 transition-all">
-                                        <div className="flex items-center gap-3 font-bold text-slate-700 dark:text-slate-300">
+                            <div className="space-y-6">
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: '#22C55E' }}>Appearance</h4>
+                                    <button onClick={toggleTheme}
+                                        className="w-full flex items-center justify-between p-4 rounded-2xl transition-all"
+                                        style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE' }}>
+                                        <div className="flex items-center gap-3 font-semibold text-sm" style={{ color: '#1E3A8A' }}>
                                             {theme === 'light' ? <Sun size={18} /> : <Moon size={18} />}
                                             {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
                                         </div>
-                                        <div className={`w-10 h-5 rounded-full relative transition-all ${theme === 'dark' ? 'bg-primary' : 'bg-slate-300'}`}>
-                                            <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${theme === 'dark' ? 'left-6' : 'left-1'}`} />
+                                        <div className={`w-11 h-6 rounded-full relative transition-all`}
+                                            style={{ background: theme === 'dark' ? '#2563EB' : '#CBD5E1' }}>
+                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow`}
+                                                style={{ left: theme === 'dark' ? '26px' : '4px' }} />
                                         </div>
                                     </button>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Localization</h4>
-                                    <div className="grid grid-cols-2 gap-4 text-xs font-bold">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 mb-2 text-slate-500"><Globe size={14} /> Language</div>
-                                            <select value={language} onChange={e => setLanguage(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border-none focus:ring-2 focus:ring-primary outline-none">
+                                <div>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: '#22C55E' }}>Localization</h4>
+                                    <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                                        <div>
+                                            <div className="flex items-center gap-1 mb-2" style={{ color: '#64748B' }}><Globe size={13} /> Language</div>
+                                            <select value={language} onChange={e => setLanguage(e.target.value)}
+                                                className="w-full p-3 rounded-xl text-sm outline-none"
+                                                style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#1E3A8A' }}>
                                                 {languages.map(l => <option key={l.code} value={l.code}>{l.native}</option>)}
                                             </select>
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 mb-2 text-slate-500"><CreditCard size={14} /> Currency</div>
-                                            <select value={currency} onChange={e => setCurrency(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border-none focus:ring-2 focus:ring-primary outline-none">
+                                        <div>
+                                            <div className="flex items-center gap-1 mb-2" style={{ color: '#64748B' }}><CreditCard size={13} /> Currency</div>
+                                            <select value={currency} onChange={e => setCurrency(e.target.value)}
+                                                className="w-full p-3 rounded-xl text-sm outline-none"
+                                                style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#1E3A8A' }}>
                                                 {currencies.map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
@@ -196,29 +233,50 @@ export default function Navbar() {
                 )}
             </AnimatePresence>
 
-
-
-            {/* Modal Components */}
+            {/* ===== Password Modal ===== */}
             <AnimatePresence>
                 {showPasswordModal && (
                     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPasswordModal(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl relative z-10 border border-slate-100 dark:border-slate-800">
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Security Key Update</h3>
-                            <p className="text-slate-500 text-sm mb-8">Update your vault passkey regularly.</p>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            onClick={() => setShowPasswordModal(false)}
+                            className="absolute inset-0"
+                            style={{ background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }} />
+                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                            className="w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative z-10"
+                            style={{ background: theme === 'dark' ? '#0F172A' : 'white', border: '1.5px solid #BFDBFE' }}>
+                            <h3 className="text-xl font-black mb-1" style={{ color: theme === 'dark' ? '#93C5FD' : '#1E3A8A' }}>Change Password</h3>
+                            <p className="text-sm mb-6" style={{ color: '#64748B' }}>Update your account password securely.</p>
                             <form onSubmit={handlePasswordChange} className="space-y-4">
-                                <input type="password" placeholder="Current" className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-primary" value={passwords.current} onChange={e => setPasswords({ ...passwords, current: e.target.value })} />
-                                <input type="password" placeholder="New" className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-primary" value={passwords.new} onChange={e => setPasswords({ ...passwords, new: e.target.value })} />
-                                <input type="password" placeholder="Confirm" className="w-full bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-primary" value={passwords.confirm} onChange={e => setPasswords({ ...passwords, confirm: e.target.value })} />
-                                {passMessage.text && <p className={`text-xs font-bold text-center ${passMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>{passMessage.text}</p>}
-                                <button type="submit" disabled={passLoading} className="w-full bg-primary text-white py-4 rounded-xl font-black shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                                    {passLoading ? 'Syncing...' : 'Update passkey'}
+                                {['current', 'new', 'confirm'].map((field) => (
+                                    <input key={field} type="password"
+                                        placeholder={field.charAt(0).toUpperCase() + field.slice(1) + ' Password'}
+                                        className="w-full p-4 rounded-xl text-sm outline-none transition-all"
+                                        style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', color: '#1E3A8A' }}
+                                        value={passwords[field]}
+                                        onChange={e => setPasswords({ ...passwords, [field]: e.target.value })}
+                                        onFocus={e => e.target.style.borderColor = '#2563EB'}
+                                        onBlur={e => e.target.style.borderColor = '#BFDBFE'} />
+                                ))}
+                                {passMessage.text && (
+                                    <p className={`text-xs font-bold text-center ${passMessage.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>
+                                        {passMessage.text}
+                                    </p>
+                                )}
+                                <button type="submit" disabled={passLoading}
+                                    className="w-full py-4 rounded-xl font-black text-sm text-white transition-all active:scale-95"
+                                    style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', boxShadow: '0 4px 14px rgba(37,99,235,.3)' }}>
+                                    {passLoading ? 'Updating...' : 'Update Password'}
                                 </button>
                             </form>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Click outside to close user menu */}
+            {showUser && (
+                <div className="fixed inset-0 z-[99]" onClick={() => setShowUser(false)} />
+            )}
         </>
     );
 }

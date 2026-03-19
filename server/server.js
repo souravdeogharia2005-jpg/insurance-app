@@ -875,4 +875,28 @@ app.listen(PORT, () => {
         .catch(err => {
             console.error('⚠️ DB Connection Post-Startup Failed:', err.message);
         });
+
+    // ============================================
+    // KEEP-ALIVE PING - Prevents Render cold starts
+    // Render free tier spins down after 15 min of inactivity.
+    // This pings the health endpoint every 14 minutes to stay warm.
+    // ============================================
+    const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+    if (RENDER_URL) {
+        const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+        setInterval(async () => {
+            try {
+                const pingUrl = `${RENDER_URL}/api/health`;
+                const res = await fetch(pingUrl);
+                const data = await res.json();
+                console.log(`🔔 Keep-alive ping sent → ${data.status || 'ok'}`);
+            } catch (e) {
+                console.warn('⚠️ Keep-alive ping failed:', e.message);
+            }
+        }, PING_INTERVAL_MS);
+        console.log(`🔔 Keep-alive enabled: pinging ${RENDER_URL}/api/health every 14 min`);
+    } else {
+        console.log('ℹ️  Keep-alive skipped (RENDER_EXTERNAL_URL not set - likely local dev)');
+    }
 });
+
