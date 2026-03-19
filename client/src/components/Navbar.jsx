@@ -12,6 +12,7 @@ export default function Navbar() {
     const { theme, toggleTheme, currency, setCurrency, language, setLanguage, t } = useApp();
     const [showSettings, setShowSettings] = useState(false);
     const [showUser, setShowUser] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
     const [passLoading, setPassLoading] = useState(false);
@@ -78,7 +79,10 @@ export default function Navbar() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setShowSettings(!showSettings)} className={`p-2.5 rounded-xl transition-all ${showSettings ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary'}`}><Settings size={20} /></button>
+                        <button onClick={() => setShowMobileMenu(true)} className="lg:hidden p-2.5 rounded-xl transition-all bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary">
+                            <Menu size={20} />
+                        </button>
+                        <button onClick={() => setShowSettings(!showSettings)} className={`hidden lg:flex p-2.5 rounded-xl transition-all ${showSettings ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary'}`}><Settings size={20} /></button>
 
                         {user ? (
                             <div className="relative">
@@ -105,11 +109,44 @@ export default function Navbar() {
                                 </AnimatePresence>
                             </div>
                         ) : (
-                            <button onClick={() => navigate('/login')} className="bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Sign In</button>
+                            <button onClick={() => navigate('/login')} className="hidden lg:block bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Sign In</button>
                         )}
                     </div>
                 </nav>
             </header>
+
+            {/* Mobile Menu Overlay */}
+            <AnimatePresence>
+                {showMobileMenu && (
+                    <div className="fixed inset-0 z-[120] lg:hidden flex flex-col justify-end p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowMobileMenu(false)} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+                        <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="bg-white dark:bg-slate-900 w-full rounded-[2.5rem] p-6 shadow-2xl relative z-10 border border-slate-100 dark:border-slate-800 flex flex-col gap-6 max-h-[90vh]">
+                            <div className="flex items-center justify-between px-2">
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Menu</h3>
+                                <button onClick={() => setShowMobileMenu(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500 active:scale-95"><X size={20} /></button>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto px-2 pb-6 space-y-2">
+                                {links.map(l => (
+                                    <NavLink key={l.to} to={l.to} onClick={() => setShowMobileMenu(false)} className={({ isActive }) => `flex items-center gap-4 px-6 py-4 rounded-2xl text-base font-bold transition-all ${isActive ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                                        <l.icon size={22} className={({ isActive }) => isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'} />
+                                        {l.label}
+                                    </NavLink>
+                                ))}
+                            </div>
+                            
+                            <div className="border-t border-slate-100 dark:border-slate-800 pt-6 px-2 grid grid-cols-2 gap-4">
+                                <button onClick={() => { setShowMobileMenu(false); setShowSettings(true); }} className="flex items-center justify-center gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl text-sm font-bold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-700"><Settings size={18} /> Settings</button>
+                                {!user ? (
+                                    <button onClick={() => { setShowMobileMenu(false); navigate('/login'); }} className="flex items-center justify-center gap-2 p-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20"><User size={18} /> Sign In</button>
+                                ) : (
+                                    <button onClick={() => { setShowMobileMenu(false); handleLogout(); }} className="flex items-center justify-center gap-2 p-4 bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400 rounded-2xl text-sm font-bold hover:bg-red-100 transition"><LogOut size={18} /> Logout</button>
+                                )}
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
 
             {/* Settings Overlay */}
             <AnimatePresence>

@@ -122,165 +122,161 @@ function calculateInsurance(user) {
   let emr = 0;
   let breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0, occupation: 0 };
 
-  // ✅ BMI
+  // 1. BMI Calculation (29-33 -> +10)
   let bmiPts = 0;
   if (!user.bmi || user.bmi <= 0) bmiPts = 0;
+  else if (user.bmi >= 29 && user.bmi <= 33) bmiPts = 10;
+  else if (user.bmi > 33) bmiPts = 15;
   else if (user.bmi < 18) bmiPts = 10;
-  else if (user.bmi <= 23) bmiPts = 0;
-  else if (user.bmi <= 28) bmiPts = 5;
-  else if (user.bmi <= 33) bmiPts = 10;
-  else bmiPts = 15;
+  else bmiPts = 0;
+  
   emr += bmiPts;
   breakdown.bmi = bmiPts;
 
-  // ✅ Family History
+  // 2. Family History (Only >65 benefits)
   let famPts = 0;
-  const famMap = { "both_above_65": -10, "one_above_65": -5, "both_below_65": 10 };
-  famPts = famMap[user.parentStatus] || famMap[user.family] || 0;
+  const famMap = { 
+    "both_above_65": -10, 
+    "one_above_65": -5, 
+    "both_below_65": 0, // No penalty, just no benefit
+    "below_65": 0 
+  };
+  famPts = famMap[user.family] || 0;
   emr += famPts;
   breakdown.family = famPts;
 
-  // ✅ Diseases
-  const diseasePoints = {
-    thyroid: [2.5, 5, 7.5, 10],
+  // 3. Health Conditions (Direct Mapping)
+  const diseaseTable = {
+    thyroid: [0, 5, 7.5, 10],      // L1, L2, L3, L4
     asthma: [5, 7.5, 10, 12.5],
     hypertension: [5, 7.5, 10, 15],
     diabetes: [10, 15, 20, 25],
-    gut_disorder: [5, 10, 15, 20]
+    gut_disorder: [5, 10, 15, 20],
+    gut: [5, 10, 15, 20] // Fallback for differing keys
   };
 
-  let diseaseCount = 0;
   let healthPts = 0;
+  let diseaseCount = 0;
 
   const data = user.severities || user.diseases || {};
-  for (let d in data) {
-    let severity = data[d];
-    const key = d === 'gut' ? 'gut_disorder' : d; 
-    if (severity > 0 && diseasePoints[key]) {
-      healthPts += diseasePoints[key][severity - 1];
+  for (let key in data) {
+    const severity = data[key]; // 1-4
+    if (severity > 0 && diseaseTable[key]) {
+      healthPts += diseaseTable[key][severity - 1];
       diseaseCount++;
     }
   }
   emr += healthPts;
   breakdown.health = healthPts;
 
-  // ✅ Co-morbidity
+  // 4. Co-morbidity Loading
   let comorbPts = 0;
   if (diseaseCount === 2) comorbPts = 20;
-  if (diseaseCount >= 3) comorbPts = 40;
+  else if (diseaseCount >= 3) comorbPts = 40;
   emr += comorbPts;
   breakdown.comorbidity = comorbPts;
 
-  // ✅ Habits
-  const habitPointsMap = { "never": 0, "occasional": 5, "moderate": 10, "heavy": 15 };
+  // 5. Personal Habits
+  const habitMap = { 0: 0, 1: 5, 2: 10, 3: 15 }; // 0: Never, 1: Occasional, 2: Moderate, 3: High
+  let lifestylePts = 0;
   let habitCount = 0;
-  let lifePts = 0;
 
-  const habits = ['smoking', 'alcohol', 'tobacco'];
-  habits.forEach(h => {
-    const val = user[h];
-    if (val && val !== 'never') {
-      lifePts += habitPointsMap[val] || 0;
-      habitCount++;
+  if (user.habits) {
+    for (let key in user.habits) {
+      const level = user.habits[key];
+      if (level > 0) {
+        lifestylePts += habitMap[level] || 0;
+        habitCount++;
+      }
     }
-  });
-  emr += lifePts;
-  breakdown.lifestyle = lifePts;
+  } else {
+    // Fallback for older data structure on backend
+    const habits = ['smoking', 'alcohol', 'tobacco'];
+    const oldHabitMap = { "never": 0, "occasional": 5, "moderate": 10, "heavy": 15 };
+    habits.forEach(h => {
+      const val = user[h];
+      if (val && val !== 'never') {
+        lifestylePts += oldHabitMap[val] || 0;
+        let lvl = 0;
+        if(val === 'occasional') lvl = 1;
+        else if(val === 'moderate') lvl = 2;
+        else if(val === 'heavy') lvl = 3;
+        if(lvl > 0) habitCount++;
+      }
+    });
+  }
+  emr += lifestylePts;
+  breakdown.lifestyle = lifestylePts;
 
-  // ✅ Risky habits combo
+  // 6. Risky Habit Combo
   let comboPts = 0;
   if (habitCount === 2) comboPts = 20;
-  if (habitCount >= 3) comboPts = 40;
+  else if (habitCount >= 3) comboPts = 40;
   emr += comboPts;
   breakdown.habitCombo = comboPts;
 
-  // ✅ Occupation Risk
-  const occPoints = {
-    desk_job: 0, light_manual: 0,
-    moderate_physical: 15, heavy_manual: 15, merchant_navy: 15, oil_industry: 15, hazardous: 15, athlete: 15,
-    pilot: 30, extreme_risk: 30
+  // 7. Occupation Risk
+  const occMap = {
+    normal: 0,
+    desk_job: 0,
+    athlete: 0,
+    merchant_navy: 15,
+    oil_industry: 15,
+    pilot: 30,
+    driver: 15,
+    // Fallbacks for older data mapping
+    light_manual: 0,
+    moderate_physical: 15, 
+    heavy_manual: 15, 
+    hazardous: 15, 
+    extreme_risk: 30
   };
-  let occupationPts = occPoints[user.occupation] || 0;
+  let occupationPts = occMap[user.occupation] || 0;
   emr += occupationPts;
   breakdown.occupation = occupationPts;
 
-  // ✅ Find Life Factor
-  function getLifeFactor(emr) {
-    if (emr <= 35) return 1;
-    if (emr <= 60) return 2;
-    if (emr <= 85) return 3;
-    if (emr <= 120) return 4;
-    if (emr <= 170) return 6;
-    if (emr <= 225) return 8;
-    if (emr <= 275) return 10;
-    if (emr <= 350) return 12;
-    if (emr <= 450) return 16;
-    return 20;
+  // Result Mapping (EMR -> Class)
+  function getLifeClass(val) {
+    if (val <= 20) return { class: 'I', factor: 1, color: '#10b981' };
+    if (val <= 40) return { class: 'II', factor: 2, color: '#84cc16' };
+    if (val <= 85) return { class: 'III', factor: 3, color: '#f59e0b' };
+    if (val <= 120) return { class: 'IV', factor: 4, color: '#f97316' };
+    return { class: 'V+', factor: 6, color: '#ef4444' };
   }
 
-  function getLifeClass(emr) {
-    if (emr <= 35) return 'I';
-    if (emr <= 60) return 'II';
-    if (emr <= 85) return 'III';
-    if (emr <= 120) return 'IV';
-    if (emr <= 170) return 'V';
-    if (emr <= 225) return 'VI';
-    if (emr <= 275) return 'VII';
-    if (emr <= 350) return 'VIII';
-    if (emr <= 450) return 'IX';
-    return 'X';
-  }
+  const res = getLifeClass(emr);
 
-  // ✅ Health Factor
-  function getHealthFactor(emr) {
-    if (emr <= 20) return 0;
-    if (emr <= 35) return 1;
-    if (emr <= 60) return 2;
-    if (emr <= 75) return 3;
-    return 4;
-  }
-  
-  function getHealthClass(emr) {
-    if (emr <= 20) return 'Std';
-    if (emr <= 35) return 'I';
-    if (emr <= 60) return 'II';
-    if (emr <= 75) return 'III';
-    return 'IV';
-  }
-
-  let lifeFactor = getLifeFactor(emr);
-  let lifeClass = getLifeClass(emr);
-  let healthFactor = getHealthFactor(emr);
-  let healthClass = getHealthClass(emr);
-
-  // ✅ Get Rates
-  function getRate(age) {
+  // Premium Calculations
+  function getRates(age) {
     if (age <= 35) return { life: 1.5, accident: 1.0, cir: 3.0 };
-    if (age <= 40) return { life: 3.0, accident: 1.0, cir: 6.0 };
-    if (age <= 45) return { life: 4.5, accident: 1.0, cir: 12.0 };
-    if (age <= 50) return { life: 6.0, accident: 1.0, cir: 15.0 };
-    if (age <= 55) return { life: 7.5, accident: 1.5, cir: 20.0 };
-    return { life: 9.0, accident: 1.5, cir: 25.0 };
+    if (age <= 45) return { life: 3.0, accident: 1.0, cir: 6.0 };
+    return { life: 4.5, accident: 1.5, cir: 10.0 };
   }
 
-  let rate = getRate(user.age || 30);
+  const rate = getRates(user.age || 30);
+  const loading = (res.factor * 0.25) + 1; // Factor 1 -> 1.25x (25% loading)
 
-  // ✅ Sum Assured
-  let lifeSA = user.lifeCover || 10000000; // 100 lakh default
-  let cirSA = user.cirCover || 5000000;   // 50 lakh default
-  let accSA = user.accidentCover || 5000000;   // 50 lakh default
+  const lifeBase = (rate.life * (user.lifeCover || 10000000)) / 1000;
+  const cirBase = (rate.cir * (user.cirCover || 5000000)) / 1000;
+  const accBase = (rate.accident * (user.accidentCover || 5000000)) / 1000;
 
-  // ✅ Base Premium
-  let lifeBase = (rate.life * lifeSA) / 1000;
-  let cirBase = (rate.cir * cirSA) / 1000;
-  let accBase = (rate.accident * accSA) / 1000;
+  const lifePremium = Math.round(lifeBase * loading);
+  const cirPremium = Math.round(cirBase * loading);
+  const accPremium = Math.round(accBase * loading);
 
-  // ✅ Loading
-  let lifePremium = Math.round(lifeBase + (lifeBase * (lifeFactor * 0.25)));
-  let cirPremium = Math.round(cirBase + (cirBase * (healthFactor * 0.30)));
-  let accPremium = Math.round(accBase + (accBase * (lifeFactor * 0.25)));
-
-  return { emr, breakdown, lifeClass, healthClass, lifeFactor, healthFactor, lifePremium, cirPremium, accPremium, total: lifePremium + cirPremium + accPremium };
+  return {
+    emr,
+    breakdown,
+    lifeClass: res.class,
+    lifeFactor: res.factor,
+    healthClass: res.class, 
+    healthFactor: res.factor,
+    lifePremium,
+    cirPremium,
+    accPremium,
+    total: lifePremium + cirPremium + accPremium,
+    color: res.color
+  };
 }
 
 app.post('/api/calculate', authenticateToken, (req, res) => {
