@@ -18,6 +18,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Redirects already-logged-in users away from /login
+function AuthGuard({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner" /></div>;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 function PageTransition({ children }) {
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98, filter: 'blur(2px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.98, filter: 'blur(2px)' }} transition={{ duration: 0.3, ease: 'easeOut' }}>
@@ -40,7 +48,7 @@ function AppLayout() {
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
-            <Route path="/login" element={<PageTransition><LoginPage /></PageTransition>} />
+            <Route path="/login" element={<AuthGuard><PageTransition><LoginPage /></PageTransition></AuthGuard>} />
             <Route path="/dashboard" element={<ProtectedRoute><PageTransition><DashboardPage /></PageTransition></ProtectedRoute>} />
             <Route path="/proposal" element={<ProtectedRoute><PageTransition><ProposalPage /></PageTransition></ProtectedRoute>} />
             <Route path="/scan" element={<ProtectedRoute><PageTransition><ScanPage /></PageTransition></ProtectedRoute>} />

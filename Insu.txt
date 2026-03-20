@@ -1,0 +1,113 @@
+
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Sourav123';
+
+student 123
+
+samv jrgx dzrv yjih
+
+in the admin when we edit fix this "Fix the modal popup positioning so it does not get hidden behind the navbar. The navbar has a higher stacking context and is overlapping the modal. Ensure the popup appears fully visible below the navbar.
+
+Requirements:
+
+Add a top offset equal to the navbar height (for example top: 80px).
+
+Ensure the modal container uses position: fixed.
+
+Set a higher z-index than the navbar (e.g., navbar z-index: 50, modal z-index: 100).
+
+Keep the popup centered horizontally while starting below the navbar.
+
+Maintain responsive behavior for mobile and desktop.
+
+The background overlay should cover the entire screen but start visually below the navbar.
+
+Expected behavior:
+When the modal opens, it should not overlap the navbar and should appear directly below it, fully visible with proper spacing."  in the dashbord section fix this / add this Update the **Dashboard → All Proposals table** so that it displays **all submitted proposals from all users**, not just the currently logged-in user.
+
+Requirements:
+
+1. Fetch **all proposals from the database/API**, not filtered by the logged-in user.
+
+2. Display each proposal in the **All Proposals table** with the following fields:
+
+   * ID
+   * Name of the applicant
+   * EMR score
+   * Risk class
+   * Premium amount
+   * Status
+   * Date
+
+3. **Privacy Rule:**
+
+   * The **Premium amount must be blurred or masked** for security.
+   * Use a blur effect such as `filter: blur(6px)` or show it as `₹••••`.
+   * Only **Admin users** should be able to view the actual premium.
+
+4. Ensure the table dynamically updates when new proposals are submitted.
+
+5. Keep the existing UI style intact:
+
+   * Same cards
+   * Same table layout
+   * Same status tags (Approved / Rejected / Pending).
+
+Expected Result:
+
+The **All Proposals section should show every proposal submitted by all users**, while the **premium values remain blurred for privacy**, unless the viewer is an Admin.
+also add charts graphs in the dasboard and in the proposal section add this feauture Improve the multi-step form stepper UI behavior.
+
+Requirements:
+
+1. The stepper contains the steps:
+   Personal → Family → Health → Lifestyle → Occupation → Financial → Coverage → Summary.
+
+2. When the user clicks **Next**:
+
+   * The **current step should change to completed state**.
+   * The completed step icon should become a **green circle with a white checkmark ✓**.
+   * The connecting line before that step should also turn **green**.
+   * The **next step becomes active** (blue highlight like current UI).
+
+3. Completed steps should:
+
+   * Remain **clickable** so the user can go back and edit.
+   * Keep the **green tick indicator**.
+
+4. Styling rules:
+
+   * Completed step → green background (#22c55e) with white checkmark icon.
+   * Active step → blue highlight (current design).
+   * Upcoming steps → grey.
+
+5. Animation:
+
+   * Add a **smooth transition (0.3s)** when the step changes.
+   * The checkmark should **fade/scale in smoothly**.
+
+6. Ensure the stepper works properly with the **Next and Previous buttons** and updates the state dynamically.
+
+Expected behavior:
+
+When the user presses **Next**, the previous step becomes **green with a checkmark**, the progress line becomes **green**, and the next step becomes **active**.
+Extra UI improvement (will make your project look more professional):
+
+Add progress percentage above the stepper like
+Step 2 of 8 (25% Complete)
+
+Add auto-save form state so if user refreshes the page the progress stays. and in change passowrd its not working fix that give the app again also adjust for mobile
+
+c:\Users\deogh\OneDrive\Desktop\Insurance
+
+
+c:\Users\deogh\OneDrive\Desktop\Insurance
+
+okay now give the file loactions and steps to upload the site with the server give all stpes i dont know any
+
+https://five.buzzvel.com/
+
+https://fooror.com/
+
+736299
+
+https://insurance-app-ruby.vercel.app/
