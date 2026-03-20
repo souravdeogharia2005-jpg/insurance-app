@@ -402,51 +402,52 @@ app.post('/api/auth/register', async (req, res) => {
 
         const token = jwt.sign({ id: result.insertId, name, email, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
 
-        // Send Welcome Email (non-blocking, with timeout)
-        try {
-            const welcomeCtrl = new AbortController();
-            const welcomeTimeout = setTimeout(() => welcomeCtrl.abort(), 25000);
-            const welcomeEmailBody = {
-                sender: { name: 'AegisAI Insurance', email: SENDER_EMAIL },
-                to: [{ email: email, name: name }],
-                subject: 'Welcome to AegisAI Insurance! 🛡️',
-                textContent: `Hello ${name}! Welcome to AegisAI. Your registration is complete. Log in to your dashboard to get started.`,
-                htmlContent: `
-                    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6;">
-                        <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                            <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AegisAI, ${name}! 🛡️</h1>
-                        </div>
-                        <div style="padding: 30px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
-                            <p style="font-size: 16px;">Thank you for joining AegisAI. Your account has been created successfully.</p>
-                            <p style="font-size: 16px;">With AegisAI, you have access to AI-driven risk assessment and personalized insurance proposals.</p>
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">Go to Dashboard →</a>
-                            </div>
-                            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-                            <p style="font-size: 14px; color: #6b7280; margin: 0;">Best regards, <strong style="color: #2563eb;">The AegisAI Team</strong></p>
-                        </div>
-                    </div>
-                `
-            };
-            const welcomeRes = await fetch(BREVO_API_URL, {
-                method: 'POST',
-                headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
-                body: JSON.stringify(welcomeEmailBody),
-                signal: welcomeCtrl.signal
-            });
-            clearTimeout(welcomeTimeout);
-            if (welcomeRes.ok) {
-                console.log(`✅ Welcome email sent to ${email}`);
-            } else {
-                const errData = await welcomeRes.json();
-                console.error('❌ Welcome Email Error:', JSON.stringify(errData));
-            }
-        } catch (emailErr) {
-            // Non-fatal: user is registered even if email fails
-            console.error('💥 Welcome Email Failed (non-fatal):', emailErr.message);
-        }
-
+        // ✅ RESPOND IMMEDIATELY — don't block on email sending
         res.status(201).json({ token, user: { id: result.insertId, name, email, role: 'user' } });
+
+        // Send Welcome Email asynchronously (fire-and-forget, won't affect response time)
+        setImmediate(async () => {
+            try {
+                const welcomeCtrl = new AbortController();
+                const welcomeTimeout = setTimeout(() => welcomeCtrl.abort(), 25000);
+                const welcomeEmailBody = {
+                    sender: { name: 'AegisAI Insurance', email: SENDER_EMAIL },
+                    to: [{ email: email, name: name }],
+                    subject: 'Welcome to AegisAI Insurance! 🛡️',
+                    textContent: `Hello ${name}! Welcome to AegisAI. Your registration is complete.`,
+                    htmlContent: `
+                        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; line-height: 1.6;">
+                            <div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+                                <h1 style="color: white; margin: 0; font-size: 24px;">Welcome to AegisAI, ${name}! 🛡️</h1>
+                            </div>
+                            <div style="padding: 30px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+                                <p style="font-size: 16px;">Thank you for joining AegisAI. Your account has been created successfully.</p>
+                                <div style="text-align: center; margin: 30px 0;">
+                                    <a href="https://insurance-app-ruby.vercel.app/login" style="background: #2563eb; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">Go to Dashboard →</a>
+                                </div>
+                                <p style="font-size: 14px; color: #6b7280; margin: 0;">Best regards, <strong style="color: #2563eb;">The AegisAI Team</strong></p>
+                            </div>
+                        </div>
+                    `
+                };
+                const welcomeRes = await fetch(BREVO_API_URL, {
+                    method: 'POST',
+                    headers: { 'accept': 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
+                    body: JSON.stringify(welcomeEmailBody),
+                    signal: welcomeCtrl.signal
+                });
+                clearTimeout(welcomeTimeout);
+                if (welcomeRes.ok) {
+                    console.log(`✅ Welcome email sent to ${email}`);
+                } else {
+                    const errData = await welcomeRes.json();
+                    console.error('❌ Welcome Email Error:', JSON.stringify(errData));
+                }
+            } catch (emailErr) {
+                console.error('💥 Welcome Email Failed (non-fatal):', emailErr.message);
+            }
+        });
+
     } catch (error) {
         console.error('Register error:', error.message);
         res.status(500).json({ error: 'Registration failed' });
