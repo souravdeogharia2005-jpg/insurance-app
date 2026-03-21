@@ -119,48 +119,48 @@ function proposalToRow(p, userId) {
 // EMR & Premium Calculation Engine
 // ==========================================
 function calculateInsurance(user) {
+  // STEP 1: INITIALIZE
   let emr = 0;
-  let breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0, occupation: 0 };
+  let diseaseCount = 0;
+  let habitCount = 0;
+  const breakdown = { bmi: 0, family: 0, health: 0, comorbidity: 0, lifestyle: 0, habitCombo: 0, occupation: 0 };
 
-  // 1. BMI Calculation (29-33 -> +10)
+  // STEP 2: BMI (exact ranges from dataset page 1)
+  const bmi = parseFloat(user.bmi) || 0;
   let bmiPts = 0;
-  if (!user.bmi || user.bmi <= 0) bmiPts = 0;
-  else if (user.bmi >= 29 && user.bmi <= 33) bmiPts = 10;
-  else if (user.bmi > 33) bmiPts = 15;
-  else if (user.bmi < 18) bmiPts = 10;
-  else bmiPts = 0;
-  
+  if (bmi > 0) {
+    if      (bmi < 18)  bmiPts = 10;
+    else if (bmi <= 23) bmiPts = 0;
+    else if (bmi <= 28) bmiPts = 5;
+    else if (bmi <= 33) bmiPts = 10;
+    else if (bmi <= 38) bmiPts = 15;
+  }
   emr += bmiPts;
   breakdown.bmi = bmiPts;
 
-  // 2. Family History (Only >65 benefits)
+  // STEP 3: FAMILY HISTORY (FIXED - both_below_65 = +10, one_above_65 = -5)
+  const familyKey = user.parentStatus || user.family || '';
   let famPts = 0;
-  const famMap = { 
-    "both_above_65": -10, 
-    "one_above_65": -5, 
-    "both_below_65": 0, // No penalty, just no benefit
-    "below_65": 0 
-  };
-  famPts = famMap[user.family] || 0;
+  if      (familyKey === 'both_above_65') famPts = -10;
+  else if (familyKey === 'one_above_65')  famPts = -5;
+  else if (familyKey === 'both_below_65') famPts = 10;
   emr += famPts;
   breakdown.family = famPts;
 
-  // 3. Health Conditions (Direct Mapping)
+  // STEP 4: HEALTH CONDITIONS
   const diseaseTable = {
-    thyroid: [0, 5, 7.5, 10],      // L1, L2, L3, L4
-    asthma: [5, 7.5, 10, 12.5],
-    hypertension: [5, 7.5, 10, 15],
-    diabetes: [10, 15, 20, 25],
-    gut_disorder: [5, 10, 15, 20],
-    gut: [5, 10, 15, 20] // Fallback for differing keys
+    thyroid:      [2.5, 5, 7.5, 10],   // L1=2.5 (FIXED - was 0)
+    asthma:       [5,   7.5, 10, 12.5],
+    hypertension: [5,   7.5, 10, 15],
+    diabetes:     [10,  15,  20, 25],
+    gut_disorder: [5,   10,  15, 20],
+    gut:          [5,   10,  15, 20],   // alias
   };
 
   let healthPts = 0;
-  let diseaseCount = 0;
-
   const data = user.severities || user.diseases || {};
   for (let key in data) {
-    const severity = data[key]; // 1-4
+    const severity = parseInt(data[key]) || 0; // 1-4
     if (severity > 0 && diseaseTable[key]) {
       healthPts += diseaseTable[key][severity - 1];
       diseaseCount++;
@@ -169,113 +169,107 @@ function calculateInsurance(user) {
   emr += healthPts;
   breakdown.health = healthPts;
 
-  // 4. Co-morbidity Loading
+  // STEP 5: CO-MORBIDITY (2=+20, 3+=+40)
   let comorbPts = 0;
-  if (diseaseCount === 2) comorbPts = 20;
-  else if (diseaseCount >= 3) comorbPts = 40;
+  if      (diseaseCount >= 3)  comorbPts = 40;
+  else if (diseaseCount === 2) comorbPts = 20;
   emr += comorbPts;
   breakdown.comorbidity = comorbPts;
 
-  // 5. Personal Habits
-  const habitMap = { 0: 0, 1: 5, 2: 10, 3: 15 }; // 0: Never, 1: Occasional, 2: Moderate, 3: High
-  let lifestylePts = 0;
-  let habitCount = 0;
+  // STEP 6: PERSONAL HABITS (numeric 0-3 or string)
+  const habitLevelToPoints = { 0: 0, 1: 5, 2: 10, 3: 15 };
+  const stringHabitMap = { 'never': 0, 'occasional': 5, 'moderate': 10, 'heavy': 15, 'high': 15 };
 
-  if (user.habits) {
-    for (let key in user.habits) {
-      const level = user.habits[key];
-      if (level > 0) {
-        lifestylePts += habitMap[level] || 0;
-        habitCount++;
-      }
-    }
+  function addHabit(val) {
+    let pts = 0;
+    if (typeof val === 'number')      pts = habitLevelToPoints[val] || 0;
+    else if (typeof val === 'string') pts = stringHabitMap[val] || 0;
+    if (pts > 0) habitCount++;
+    return pts;
+  }
+
+  let lifestylePts = 0;
+  if (user.habits && typeof user.habits === 'object') {
+    for (const key in user.habits) lifestylePts += addHabit(user.habits[key]);
   } else {
-    // Fallback for older data structure on backend
+    // Fallback for older data structure on backend or direct string fields
     const habits = ['smoking', 'alcohol', 'tobacco'];
-    const oldHabitMap = { "never": 0, "occasional": 5, "moderate": 10, "heavy": 15 };
     habits.forEach(h => {
-      const val = user[h];
-      if (val && val !== 'never') {
-        lifestylePts += oldHabitMap[val] || 0;
-        let lvl = 0;
-        if(val === 'occasional') lvl = 1;
-        else if(val === 'moderate') lvl = 2;
-        else if(val === 'heavy') lvl = 3;
-        if(lvl > 0) habitCount++;
-      }
+      lifestylePts += addHabit(user[h]);
     });
   }
   emr += lifestylePts;
   breakdown.lifestyle = lifestylePts;
 
-  // 6. Risky Habit Combo
+  // STEP 7: RISKY HABIT COMBINATION (2=+20, 3=+40)
   let comboPts = 0;
-  if (habitCount === 2) comboPts = 20;
-  else if (habitCount >= 3) comboPts = 40;
+  if      (habitCount >= 3)  comboPts = 40;
+  else if (habitCount === 2) comboPts = 20;
   emr += comboPts;
   breakdown.habitCombo = comboPts;
 
-  // 7. Occupation Risk
-  const occMap = {
-    normal: 0,
-    desk_job: 0,
-    athlete: 0,
-    merchant_navy: 15,
-    oil_industry: 15,
-    pilot: 30,
-    driver: 15,
-    // Fallbacks for older data mapping
-    light_manual: 0,
-    moderate_physical: 15, 
-    heavy_manual: 15, 
-    hazardous: 15, 
-    extreme_risk: 30
-  };
-  let occupationPts = occMap[user.occupation] || 0;
-  emr += occupationPts;
-  breakdown.occupation = occupationPts;
+  // STEP 8: OCCUPATION (merged old/new fields)
+  const occMap = { normal:0, desk_job:0, student:0, homemaker:0, athlete:0, light_manual:0,
+    driver:15, merchant_navy:15, oil_industry:15, hazardous:15, moderate_physical:15, heavy_manual:15,
+    pilot:30, extreme_risk:30 };
+  const occPts = occMap[user.occupation] || 0;
+  emr += occPts;
+  breakdown.occupation = occPts;
 
-  // Result Mapping (EMR -> Class)
-  function getLifeClass(val) {
-    if (val <= 20) return { class: 'I', factor: 1, color: '#10b981' };
-    if (val <= 40) return { class: 'II', factor: 2, color: '#84cc16' };
-    if (val <= 85) return { class: 'III', factor: 3, color: '#f59e0b' };
-    if (val <= 120) return { class: 'IV', factor: 4, color: '#f97316' };
-    return { class: 'V+', factor: 6, color: '#ef4444' };
+  // STEP 9: LIFE CLASS (page 2 — FIXED breakpoints)
+  function getLifeClass(v) {
+    if (v <= 35)  return { class: 'I',   factor: 1, color: '#22C55E' };
+    if (v <= 60)  return { class: 'II',  factor: 2, color: '#84CC16' };
+    if (v <= 85)  return { class: 'III', factor: 3, color: '#F59E0B' };
+    if (v <= 120) return { class: 'IV',  factor: 4, color: '#F97316' };
+    return          { class: 'V+',  factor: 6, color: '#EF4444' };
   }
 
-  const res = getLifeClass(emr);
+  // STEP 10: CIR CLASS (page 3)
+  function getCIRClass(v) {
+    if (v <= 20) return { class: 'Std', factor: 0 };
+    if (v <= 35) return { class: 'I',   factor: 1 };
+    if (v <= 60) return { class: 'II',  factor: 2 };
+    if (v <= 75) return { class: 'III', factor: 3 };
+    return         { class: 'IV',  factor: 4 };
+  }
 
-  // Premium Calculations
+  const lifeData = getLifeClass(emr);
+  const cirData  = getCIRClass(emr);
+
+  // STEP 11: BASE RATES per ₹1000 SA
   function getRates(age) {
-    if (age <= 35) return { life: 1.5, accident: 1.0, cir: 3.0 };
-    if (age <= 45) return { life: 3.0, accident: 1.0, cir: 6.0 };
-    return { life: 4.5, accident: 1.5, cir: 10.0 };
+    const a = parseInt(age) || 30;
+    if (a <= 35) return { life: 1.5, accident: 1.0, cir: 3.0 };
+    if (a <= 40) return { life: 3.0, accident: 1.0, cir: 6.0 };
+    if (a <= 45) return { life: 4.5, accident: 1.0, cir: 12.0 };
+    if (a <= 50) return { life: 6.0, accident: 1.0, cir: 15.0 };
+    if (a <= 55) return { life: 7.5, accident: 1.5, cir: 20.0 };
+    return         { life: 9.0, accident: 1.5, cir: 25.0 };
   }
+  const rate   = getRates(user.age);
+  const lifeSA = parseFloat(user.lifeCover) || 10000000;
+  const cirSA  = parseFloat(user.cirCover)  || 5000000;
+  const accSA  = parseFloat(user.accCover || user.accidentCover) || 5000000;
 
-  const rate = getRates(user.age || 30);
-  const loading = (res.factor * 0.25) + 1; // Factor 1 -> 1.25x (25% loading)
+  const lifeBase = (rate.life     * lifeSA) / 1000;
+  const accBase  = (rate.accident * accSA)  / 1000;
+  const cirBase  = (rate.cir      * cirSA)  / 1000;
 
-  const lifeBase = (rate.life * (user.lifeCover || 10000000)) / 1000;
-  const cirBase = (rate.cir * (user.cirCover || 5000000)) / 1000;
-  const accBase = (rate.accident * (user.accidentCover || 5000000)) / 1000;
-
-  const lifePremium = Math.round(lifeBase * loading);
-  const cirPremium = Math.round(cirBase * loading);
-  const accPremium = Math.round(accBase * loading);
+  // STEP 12: APPLY SEPARATE LOADING (FIXED - CIR uses 30% not 25%)
+  // LIFE: (lifeBase + accBase) × (1 + 0.25 × lifeFactor)
+  // CIR:  cirBase              × (1 + 0.30 × cirFactor)
+  const lifePremium = Math.round((lifeBase + accBase) * (1 + 0.25 * lifeData.factor));
+  const cirPremium  = Math.round(cirBase               * (1 + 0.30 * cirData.factor));
 
   return {
-    emr,
-    breakdown,
-    lifeClass: res.class,
-    lifeFactor: res.factor,
-    healthClass: res.class, 
-    healthFactor: res.factor,
-    lifePremium,
-    cirPremium,
-    accPremium,
-    total: lifePremium + cirPremium + accPremium,
-    color: res.color
+    emr, breakdown,
+    lifeClass: lifeData.class, lifeFactor: lifeData.factor,
+    cirClass:  cirData.class,  cirFactor:  cirData.factor,
+    healthClass: cirData.class, healthFactor: cirData.factor, // UI aliases
+    lifePremium, cirPremium, accPremium: 0,
+    total: lifePremium + cirPremium,
+    color: lifeData.color,
   };
 }
 
