@@ -68,7 +68,7 @@ export default function ScanPage() {
     const [downloadingPDF, setDownloadingPDF] = useState(false);
 
     // ── Existing EMR scan flow (Gemini) ──────────────────────────────────────
-    const handleScanFile = async (file) => {
+    const handleScanFile = async (file, inputElement) => {
         if (!file) return;
         setStatus('scanning');
         setScanProgress(0);
@@ -129,14 +129,20 @@ export default function ScanPage() {
             console.error('Workflow Failed:', error);
             alert(error.message || 'Failed to process document. Please try a clearer image.');
             setStatus('idle');
+        } finally {
+            if (inputElement) inputElement.value = '';
         }
     };
 
     // ── Google Vision OCR flow ────────────────────────────────────────────────
-    const handleVisionScan = async (file) => {
+    const handleVisionScan = async (file, inputElement) => {
         if (!file) return;
         setStatus('vision_scanning');
         setScanProgress(0);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+
         try {
             const progressInterval = setInterval(() => setScanProgress(p => p >= 90 ? 90 : p + 8), 500);
             const token = localStorage.getItem('aegis-token');
@@ -146,9 +152,11 @@ export default function ScanPage() {
             const res = await fetch(`${API}/vision-scan`, {
                 method: 'POST',
                 body: formData,
-                headers: token ? { Authorization: `Bearer ${token}` } : {}
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                signal: controller.signal
             });
             clearInterval(progressInterval);
+            clearTimeout(timeoutId);
             setScanProgress(100);
 
             const data = await res.json();
@@ -158,9 +166,16 @@ export default function ScanPage() {
             setVisionStructured(data.structured || null);
             setStatus('vision_done');
         } catch (error) {
+            clearTimeout(timeoutId);
             console.error('Vision scan failed:', error);
-            alert(error.message || 'Vision scan failed. Please try a clearer image.');
+            if (error.name === 'AbortError') {
+                alert('Scan timed out. The server might be waking up or the image is too large.');
+            } else {
+                alert(error.message || 'Vision scan failed. Please try a clearer image.');
+            }
             setStatus('idle');
+        } finally {
+            if (inputElement) inputElement.value = '';
         }
     };
 
@@ -262,10 +277,10 @@ export default function ScanPage() {
                 </AnimatePresence>
 
                 {/* ── Hidden File Inputs ────────────────────────────────────── */}
-                <input ref={inputRef} id="scan-upload" type="file" accept="image/*" hidden onChange={e => { handleScanFile(e.target.files[0]); e.target.value = ''; }} />
-                <input ref={cameraRef} id="scan-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => { handleScanFile(e.target.files[0]); e.target.value = ''; }} />
-                <input ref={visionInputRef} id="vision-upload" type="file" accept="image/*" hidden onChange={e => { handleVisionScan(e.target.files[0]); e.target.value = ''; }} />
-                <input ref={visionCameraRef} id="vision-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => { handleVisionScan(e.target.files[0]); e.target.value = ''; }} />
+                <input id="scan-upload" type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="scan-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="vision-upload" type="file" accept="image/*" hidden onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                <input id="vision-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => handleVisionScan(e.target.files[0], e.target)} />
 
                 {/* ── Idle State ───────────────────────────────────────────── */}
                 {status === 'idle' && activeMode === 'emr' && (
@@ -278,12 +293,12 @@ export default function ScanPage() {
                             <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">{t('autoEngineTitle')}</h3>
                             <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium leading-relaxed">{t('autoEngineDesc')}</p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                <label htmlFor="scan-upload" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
                                     <Upload size={18} /> {t('uploadImage')}
-                                </button>
-                                <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm">
+                                </label>
+                                <label htmlFor="scan-camera" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm">
                                     <Camera size={18} /> {t('useCamera')}
-                                </button>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -302,12 +317,12 @@ export default function ScanPage() {
                                 ✅ Powered by Google Cloud Vision API
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                <button onClick={() => visionInputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                <label htmlFor="vision-upload" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
                                     <Upload size={18} /> Upload Image
-                                </button>
-                                <button onClick={() => visionCameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-bold hover:bg-blue-50 active:scale-95 transition-all text-sm">
+                                </label>
+                                <label htmlFor="vision-camera" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-bold hover:bg-blue-50 active:scale-95 transition-all text-sm">
                                     <Camera size={18} /> Use Camera
-                                </button>
+                                </label>
                             </div>
                         </div>
                     </div>
