@@ -833,8 +833,25 @@ app.delete('/api/proposals/:id', authenticateToken, async (req, res) => {
 // ==========================================
 
 // Helper: Get Google Access Token from service account (pure Node.js, no googleapis library needed)
+// Helper: Get Google Access Token from service account
+// Production: reads from GOOGLE_VISION_KEY env var (JSON string)
+// Local dev: falls back to vision-key.json file
 async function getGoogleAccessToken() {
-    const key = require('./vision-key.json');
+    let key;
+    if (process.env.GOOGLE_VISION_KEY) {
+        try {
+            key = JSON.parse(process.env.GOOGLE_VISION_KEY);
+        } catch (e) {
+            throw new Error('GOOGLE_VISION_KEY env var is not valid JSON: ' + e.message);
+        }
+    } else {
+        try {
+            key = require('./vision-key.json');
+        } catch (e) {
+            throw new Error('vision-key.json not found and GOOGLE_VISION_KEY env var not set');
+        }
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
     const claim = Buffer.from(JSON.stringify({
@@ -861,7 +878,6 @@ async function getGoogleAccessToken() {
     if (!tokenData.access_token) throw new Error('Failed to get Google access token: ' + JSON.stringify(tokenData));
     return tokenData.access_token;
 }
-
 // POST /api/vision-scan — Google Vision OCR + structured data extraction
 app.post('/api/vision-scan', authenticateToken, async (req, res) => {
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
