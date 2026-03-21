@@ -208,13 +208,13 @@ function calculateInsurance(user) {
   emr += comboPts;
   breakdown.habitCombo = comboPts;
 
-  // STEP 8: OCCUPATION (merged old/new fields)
-  const occMap = { normal:0, desk_job:0, student:0, homemaker:0, athlete:0, light_manual:0,
-    driver:15, merchant_navy:15, oil_industry:15, hazardous:15, moderate_physical:15, heavy_manual:15,
-    pilot:30, extreme_risk:30 };
-  const occPts = occMap[user.occupation] || 0;
-  emr += occPts;
-  breakdown.occupation = occPts;
+  // STEP 8: OCCUPATION extra per mille — NOT added to EMR
+  // Per dataset page 2: extra charge per mille of Sum Assured, life part only, before loading
+  const occPerMille = { normal:0, desk_job:0, student:0, homemaker:0, athlete:2,
+    driver:2, merchant_navy:3, oil_industry:3, oil_gas:3, hazardous:3, light_manual:0,
+    pilot:6, extreme_risk:6 };
+  const occExtra = occPerMille[user.occupation] || 0;
+  breakdown.occupation = 0; // Occupation does NOT affect EMR
 
   // STEP 9: LIFE CLASS (page 2 — FIXED breakpoints)
   function getLifeClass(v) {
@@ -256,11 +256,14 @@ function calculateInsurance(user) {
   const accBase  = (rate.accident * accSA)  / 1000;
   const cirBase  = (rate.cir      * cirSA)  / 1000;
 
-  // STEP 12: APPLY SEPARATE LOADING (FIXED - CIR uses 30% not 25%)
-  // LIFE: (lifeBase + accBase) × (1 + 0.25 × lifeFactor)
-  // CIR:  cirBase              × (1 + 0.30 × cirFactor)
-  const lifePremium = Math.round((lifeBase + accBase) * (1 + 0.25 * lifeData.factor));
-  const cirPremium  = Math.round(cirBase               * (1 + 0.30 * cirData.factor));
+  // STEP 12: OCCUPATION EXTRA per mille added to lifeBase before loading
+  const occPremium = occExtra * (lifeSA / 1000);
+
+  // STEP 13: APPLY SEPARATE LOADING (FIXED - CIR uses 30% not 25%)
+  // LIFE: (lifeBase + occPremium + accBase) × (1 + 0.25 × lifeFactor)
+  // CIR:  cirBase                            × (1 + 0.30 × cirFactor)
+  const lifePremium = Math.round((lifeBase + occPremium + accBase) * (1 + 0.25 * lifeData.factor));
+  const cirPremium  = Math.round(cirBase * (1 + 0.30 * cirData.factor));
 
   return {
     emr, breakdown,

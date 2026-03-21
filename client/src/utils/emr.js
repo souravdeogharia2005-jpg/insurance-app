@@ -117,16 +117,22 @@ export function calculateInsurance(user) {
   emr += comboPts;
   breakdown.habitCombo = comboPts;
 
-  // ─── STEP 8: OCCUPATION ────────────────────────────────────
-  const occMap = {
+  // ─── STEP 8: OCCUPATION extra per mille (NOT added to EMR) ────────────────
+  // Per dataset page 2: occupation is an EXTRA CHARGE per mille of sum assured
+  // Applied ONLY to life part, BEFORE loading
+  const occPerMille = {
     normal: 0, desk_job: 0, student: 0, homemaker: 0,
-    athlete: 0,
-    driver: 15, merchant_navy: 15, oil_industry: 15, hazardous: 15,
-    pilot: 30,
+    athlete: 2,
+    driver: 2,
+    merchant_navy: 3,
+    oil_industry: 3,   // oil_gas in dataset
+    oil_gas: 3,        // alias
+    hazardous: 3,
+    pilot: 6,
   };
-  const occPts = occMap[user.occupation] || 0;
-  emr += occPts;
-  breakdown.occupation = occPts;
+  const occExtra = occPerMille[user.occupation] || 0;
+  // occPremium is computed after we know lifeSA below
+  breakdown.occupation = 0; // Occupation does NOT affect EMR
 
   // ─── STEP 9: LIFE CLASS (Page 2 of dataset) ───────────────
   function getLifeClass(emrVal) {
@@ -169,13 +175,18 @@ export function calculateInsurance(user) {
   const accBase  = (rate.accident * accSA)  / 1000;
   const cirBase  = (rate.cir      * cirSA)  / 1000;
 
-  // ─── STEP 12: APPLY LOADING (SEPARATE for Life vs CIR) ────
-  // LIFE:   (lifeBase + accBase) × (1 + 0.25 × lifeFactor)
-  // CIR:    cirBase              × (1 + 0.30 × cirFactor)
+  // ─── STEP 12: OCCUPATION EXTRA (per mille, added to lifeBase before loading) ─
+  // ✅ Correct: occPremium = occExtra × units (based on lifeSA)
+  // ✅ Applied only to life part, before loading
+  const occPremium = occExtra * (lifeSA / 1000);
+
+  // ─── STEP 13: APPLY LOADING (SEPARATE for Life vs CIR) ────
+  // LIFE:   (lifeBase + occPremium + accBase) × (1 + 0.25 × lifeFactor)
+  // CIR:    cirBase                            × (1 + 0.30 × cirFactor)
   const lifeLoading = 1 + 0.25 * lifeData.factor;
   const cirLoading  = 1 + 0.30 * cirData.factor;
 
-  const lifePremium = Math.round((lifeBase + accBase) * lifeLoading);
+  const lifePremium = Math.round((lifeBase + occPremium + accBase) * lifeLoading);
   const cirPremium  = Math.round(cirBase * cirLoading);
   const totalPremium = lifePremium + cirPremium;
 

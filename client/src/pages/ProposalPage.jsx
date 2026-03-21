@@ -141,17 +141,130 @@ export default function ProposalPage() {
 
     const generatePDF = () => {
         const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.text("AegisAI Underwriting Report", 20, 20);
-        doc.setFontSize(12);
-        doc.text(`Proposer Name: ${form.name}`, 20, 40);
-        doc.text(`Age/Gender: ${form.age} / ${form.gender}`, 20, 48);
-        doc.text(`Occupation: ${form.occupation}`, 20, 56);
-        doc.text(`---------------------------------------`, 20, 64);
-        doc.text(`EMR Score: ${calcResult.emr}`, 20, 72);
-        doc.text(`Risk Class: ${calcResult.lifeClass}`, 20, 80);
-        doc.text(`Total Yearly Premium: ${fc(calcResult.total)}`, 20, 88);
-        doc.save(`${form.name}_Report.pdf`);
+        const W = doc.internal.pageSize.getWidth();
+        const blue = [37, 99, 235];
+        const green = [34, 197, 94];
+        const dark = [15, 23, 42];
+        const light = [240, 247, 255];
+
+        // Header bar
+        doc.setFillColor(...blue);
+        doc.rect(0, 0, W, 36, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+        doc.text('AegisAI — Underwriting Report', 14, 18);
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+        doc.text('MASTER LOGIC v6.0  |  Controlled Dataset', 14, 28);
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}`, W - 14, 28, { align: 'right' });
+
+        // Green accent bar
+        doc.setFillColor(...green);
+        doc.rect(0, 36, W, 3, 'F');
+
+        let y = 48;
+
+        function sectionHeader(title) {
+            doc.setFillColor(...light);
+            doc.rect(14, y - 5, W - 28, 10, 'F');
+            doc.setDrawColor(...blue);
+            doc.setLineWidth(0.5);
+            doc.rect(14, y - 5, W - 28, 10, 'S');
+            doc.setTextColor(...blue);
+            doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+            doc.text(title.toUpperCase(), 18, y + 1);
+            y += 12;
+        }
+
+        function row(label, value, indent = false) {
+            doc.setTextColor(...dark);
+            doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+            doc.text(indent ? `    ${label}` : label, 18, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(String(value), W - 14, y, { align: 'right' });
+            doc.setDrawColor(200, 220, 255);
+            doc.setLineWidth(0.2);
+            doc.line(18, y + 2, W - 18, y + 2);
+            y += 9;
+        }
+
+        function blueBox(label, value) {
+            doc.setFillColor(...blue);
+            doc.roundedRect(14, y, (W - 32) / 2 - 2, 18, 2, 2, 'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+            doc.text(label, 16, y + 6);
+            doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+            doc.text(String(value), 16, y + 14);
+
+            doc.setFillColor(...green);
+            doc.roundedRect(14 + (W - 32) / 2 + 2, y, (W - 32) / 2 - 2, 18, 2, 2, 'F');
+            y += 22;
+        }
+
+        // ── Proposer Details ──
+        sectionHeader('1. Proposer Details');
+        row('Full Name', form.name || '—');
+        row('Gender', (form.gender || '—').charAt(0).toUpperCase() + (form.gender || '').slice(1));
+        row('Age / DOB', `${form.age} yrs  (${form.dob || '—'})`);
+        row('Residence', (form.residence || '—').charAt(0).toUpperCase() + (form.residence || '').slice(1));
+        row('Occupation', form.occupation || '—');
+        row('Annual Income', fc(form.income));
+        row('Source of Income', form.incomeSource || '—');
+        y += 4;
+
+        // ── Body Details ──
+        sectionHeader('2. Body Details');
+        row('Height', `${form.height || '—'} cm`);
+        row('Weight', `${form.weight || '—'} kg`);
+        row('BMI', `${form.bmi || '—'}`);
+        y += 4;
+
+        // ── EMR Breakdown ──
+        sectionHeader('3. EMR Score Breakdown');
+        row('BMI Points', `+${calcResult.breakdown?.bmi ?? 0}`);
+        row('Family History', `${calcResult.breakdown?.family >= 0 ? '+' : ''}${calcResult.breakdown?.family ?? 0}`);
+        row('Health Conditions', `+${calcResult.breakdown?.health ?? 0}`);
+        row('Co-morbidity', `+${calcResult.breakdown?.comorbidity ?? 0}`);
+        row('Lifestyle/Habits', `+${calcResult.breakdown?.lifestyle ?? 0}`);
+        row('Habit Combination', `+${calcResult.breakdown?.habitCombo ?? 0}`);
+        doc.setFillColor(...blue);
+        doc.rect(14, y - 3, W - 28, 12, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+        doc.text('TOTAL EMR SCORE', 18, y + 5);
+        doc.text(String(calcResult.emr), W - 14, y + 5, { align: 'right' });
+        y += 18;
+
+        // ── Risk Classification ──
+        sectionHeader('4. Risk Classification');
+        row('Life Risk Class', `Class ${calcResult.lifeClass}`);
+        row('CIR Class', `Class ${calcResult.cirClass || calcResult.healthClass || '—'}`);
+        row('Life Loading Factor', `${calcResult.lifeFactor || 1}x  (×0.25)`);
+        y += 4;
+
+        // ── Insurance Requirement ──
+        sectionHeader('5. Insurance Requirement & Premium');
+        row('Life Cover (Sum Assured)', fc(form.lifeCover));
+        row('CIR Cover', fc(form.cirCover));
+        row('Accident Cover', fc(form.accCover));
+        y += 4;
+        row('Life + Accident Premium (Yearly)', fc(calcResult.lifePremium));
+        row('CIR Premium (Yearly)', fc(calcResult.cirPremium));
+
+        // Total box
+        doc.setFillColor(...green);
+        doc.roundedRect(14, y, W - 28, 16, 2, 2, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+        doc.text('TOTAL YEARLY PREMIUM', 18, y + 7);
+        doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+        doc.text(fc(calcResult.total), W - 14, y + 7, { align: 'right' });
+        y += 22;
+
+        // Footer
+        doc.setFillColor(240, 247, 255);
+        doc.rect(0, doc.internal.pageSize.getHeight() - 14, W, 14, 'F');
+        doc.setTextColor(100, 120, 160); doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+        doc.text('This document is generated by AegisAI Insurance Platform. For official use only.', 14, doc.internal.pageSize.getHeight() - 5);
+
+        doc.save(`AegisAI_${(form.name || 'Report').replace(/\s+/g, '_')}_Underwriting_Report.pdf`);
     };
 
     if (submittedId) {
