@@ -155,20 +155,20 @@ export default function ScanPage() {
                 <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6 print:hidden">
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
-                            <span className="material-symbols-outlined text-xs">auto_awesome</span> AI-Powered Analysis
+                            <span className="material-symbols-outlined text-xs">auto_awesome</span> {t('aiPoweredAnalysis')}
                         </div>
                         <h1 className="text-3xl md:text-5xl font-black text-slate-900 flex items-center gap-4 tracking-tight">
-                            Smart Underwriter
+                            {t('scanTitle')}
                         </h1>
-                        <p className="text-slate-500 mt-3 font-medium max-w-lg leading-relaxed">Scan handwritten proposal forms to instantly map risk fields and calculate precision-factored premiums.</p>
+                        <p className="text-slate-500 mt-3 font-medium max-w-lg leading-relaxed">{t('scanSubtitle')}</p>
                     </div>
                     {status === 'idle' && (
                         <div className="flex gap-3">
                             <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 px-6 py-3.5 bg-slate-900 text-white rounded-2xl shadow-xl shadow-slate-200 font-bold hover:bg-slate-800 active:scale-95 transition-all text-sm">
-                                <Upload size={18} /> Upload Image
+                                <Upload size={18} /> {t('uploadImage')}
                             </button>
                             <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm shadow-sm">
-                                <Camera size={18} /> Use Camera
+                                <Camera size={18} /> {t('useCamera')}
                             </button>
                             <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0])} />
                             <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0])} />
@@ -184,10 +184,10 @@ export default function ScanPage() {
                             <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner text-slate-900 border border-slate-100">
                                 <ScanLine size={40} strokeWidth={2.5} />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Automated Underwriting Engine</h3>
-                            <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium leading-relaxed">Our AI vision model strictly maps physical application fields to class-factor risk tables. No manual entry required.</p>
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">{t('autoEngineTitle')}</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium leading-relaxed">{t('autoEngineDesc')}</p>
                             <button onClick={() => inputRef.current?.click()} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
-                                Start Scanning
+                                {t('startScanning')}
                             </button>
                         </div>
                     </div>
@@ -213,10 +213,10 @@ export default function ScanPage() {
                                     </div>
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">
-                                    {status === 'scanning' ? 'Analyzing Handwriting' : 'Factoring Risk'}
+                                    {status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
                                 </h3>
                                 <p className="text-sm text-slate-500 mb-8 font-medium">
-                                    {status === 'scanning' ? `AI Vision Model processing (${scanProgress}%)` : `Applying underwriting logic...`}
+                                    {status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
                                 </p>
                                 {status === 'scanning' && (
                                     <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
@@ -233,14 +233,14 @@ export default function ScanPage() {
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
 
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-4 print:hidden">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Underwriting Report</h2>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('underwritingReport')}</h2>
                             <div className="flex gap-4">
                                 <button onClick={() => window.print()} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition flex items-center gap-2 shadow-sm">
-                                    <Download size={18} /> Export PDF
+                                    <Download size={18} /> {t('exportPDF')}
                                 </button>
                                 <button onClick={handleCreateProposal} disabled={creating} className="px-8 py-3 bg-slate-900 text-white rounded-2xl shadow-2xl shadow-slate-200 font-bold hover:bg-slate-800 active:scale-95 transition flex items-center gap-2">
                                     {creating ? <Loader className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-                                    Finalize Quote
+                                    {t('finalizeQuote')}
                                 </button>
                             </div>
                         </div>
@@ -271,7 +271,7 @@ export default function ScanPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm text-slate-900 flex items-center justify-center"><Shield size={24} /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Life Class & Factor</p>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('lifeClassFactor')}</p>
                                                     <p className="font-black text-slate-900 mt-1 text-lg">Class {calcResult.lifeClass} <span className="text-indigo-600 ml-2">×{calcResult.lifeFactor}</span></p>
                                                 </div>
                                             </div>
@@ -280,7 +280,7 @@ export default function ScanPage() {
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 shadow-sm text-indigo-600 flex items-center justify-center"><Activity size={24} /></div>
                                                 <div>
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Health Class & Factor</p>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('healthClassFactor')}</p>
                                                     <p className="font-black text-slate-900 mt-1 text-lg">Class {calcResult.healthClass} <span className="text-emerald-600 ml-2">×{calcResult.healthFactor}</span></p>
                                                 </div>
                                             </div>
@@ -293,13 +293,13 @@ export default function ScanPage() {
                                     <div className="bg-slate-900 text-white rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl">
                                         <div className="absolute right-[-10%] bottom-[-10%] opacity-5 blur-2xl scale-125 text-white"><TrendingUp size={240} /></div>
                                         <div className="relative z-10">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Yearly Premium</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t('yearlyPremium')}</p>
                                             <h3 className="text-5xl font-black text-white mb-8 tracking-tight">{fc(calcResult.total)}</h3>
                                             
                                             <div className="space-y-4">
-                                                <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">Life Core</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>
-                                                <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">Critical Illness</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>
-                                                <div className="flex justify-between"><span className="text-slate-400 font-medium">Accident Rider</span><span className="font-bold">{fc(calcResult.accPremium)}</span></div>
+                                                <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">{t('lifeCore')}</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>
+                                                <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">{t('criticalIllness')}</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>
+                                                <div className="flex justify-between"><span className="text-slate-400 font-medium">{t('accidentRider')}</span><span className="font-bold">{fc(calcResult.accPremium)}</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -307,7 +307,7 @@ export default function ScanPage() {
                                     <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm">
                                         <h4 className="font-black text-slate-900 flex items-center gap-3 mb-8 tracking-tight">
                                             <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><FileText size={18} /></div>
-                                            Risk Insights
+                                            {t('riskInsights')}
                                         </h4>
                                         
                                         <div className="space-y-5">
@@ -342,10 +342,10 @@ export default function ScanPage() {
                             {/* RIGHT COLUMN: Extracted Data Profile */}
                             <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8">
-                                    <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">OCR Verified</div>
+                                    <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{t('ocrVerified')}</div>
                                 </div>
                                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-10">
-                                    Digital Twin Profile
+                                    {t('digitalTwinProfile')}
                                 </h4>
                                 <div className="space-y-6">
                                     <div>
@@ -379,7 +379,7 @@ export default function ScanPage() {
                                     </div>
                                     
                                     <button onClick={() => setStatus('idle')} className="w-full mt-10 px-6 py-4 bg-slate-50 text-slate-500 font-black rounded-2xl transition hover:bg-slate-100 active:scale-95 text-xs uppercase tracking-widest print:hidden border border-slate-100">
-                                        Scan New Form
+                                        {t('scanNewForm')}
                                     </button>
                                 </div>
                             </div>

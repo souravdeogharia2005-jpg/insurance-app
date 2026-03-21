@@ -24,26 +24,26 @@ export default function HomePage() {
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                                     </span>
-                                    <span className="text-primary text-xs font-bold uppercase tracking-wider">AI-Powered Scanning Live</span>
+                                    <span className="text-primary text-xs font-bold uppercase tracking-wider">{t('heroBadge')}</span>
                                 </div>
                                 <div className="flex flex-col gap-4 text-left">
                                     <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight text-left">
-                                        Find the Best Insurance Policy with <span className="text-primary">Innovation</span>
+                                        {t('heroTitle')} <span className="text-primary">{t('heroTitleAccent')}</span>
                                     </h1>
                                     <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg text-left">
-                                        Experience the future of Insurtech with AI-powered scanning that finds your perfect coverage in seconds. Compare thousands of policies instantly.
+                                        {t('heroSubtitle')}
                                     </p>
                                 </div>
                                 <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
                                     <div className="flex-1 relative">
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
-                                        <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all shadow-sm" placeholder="Enter your email for a free scan" type="email" />
+                                        <input className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 dark:border-slate-800 dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all shadow-sm" placeholder={t('heroEmailPlaceholder')} type="email" />
                                     </div>
                                     <button
                                         onClick={() => navigate(user ? '/scan' : '/login')}
                                         className="bg-primary text-white px-8 py-4 rounded-xl font-bold hover:bg-primary/90 shadow-xl shadow-primary/30 flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-95"
                                     >
-                                        <span>Scan Now</span>
+                                        <span>{t('scanNow')}</span>
                                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
                                     </button>
                                 </div>
@@ -73,24 +73,12 @@ export default function HomePage() {
                 {/* Trusted By Section */}
                 <section className="py-12 bg-white dark:bg-slate-900/50 border-y border-slate-100 dark:border-slate-800 transition-colors">
                     <div className="max-w-7xl mx-auto px-4">
-                        <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-10">Trusted by Industry Leaders</p>
+                        <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-10">{t('trustedByLeaders')}</p>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 items-center justify-items-center opacity-70 grayscale hover:grayscale-0 transition-all duration-500 dark:invert dark:brightness-150">
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary text-3xl">shield_person</span>
-                                <span className="text-xl font-bold text-slate-800">Guardian</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary text-3xl">account_balance</span>
-                                <span className="text-xl font-bold text-slate-800">NexaSafe</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary text-3xl">bolt</span>
-                                <span className="text-xl font-bold text-slate-800">SwiftInsure</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary text-3xl">public</span>
-                                <span className="text-xl font-bold text-slate-800">OmniShield</span>
-                            </div>
+                            <div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary text-3xl">shield_person</span><span className="text-xl font-bold text-slate-800">Guardian</span></div>
+                            <div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary text-3xl">account_balance</span><span className="text-xl font-bold text-slate-800">NexaSafe</span></div>
+                            <div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary text-3xl">bolt</span><span className="text-xl font-bold text-slate-800">SwiftInsure</span></div>
+                            <div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary text-3xl">public</span><span className="text-xl font-bold text-slate-800">OmniShield</span></div>
                         </div>
                     </div>
                 </section>
@@ -99,14 +87,14 @@ export default function HomePage() {
                 <section className="py-24 bg-slate-50/50 dark:bg-background-dark/50 lg:py-32">
                     <div className="max-w-7xl mx-auto px-4">
                         <div className="text-center mb-16">
-                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl mb-4 tracking-tight">The AegisAI Advantage</h2>
-                            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">Revolutionizing the insurance landscape with state-of-the-art artificial intelligence designed for accuracy and speed.</p>
+                            <h2 className="text-3xl font-bold text-slate-900 dark:text-white sm:text-4xl mb-4 tracking-tight">{t('advantageTitle')}</h2>
+                            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">{t('advantageDesc')}</p>
                         </div>
                         <div className="grid md:grid-cols-3 gap-8">
                             {[
-                                { icon: 'timer', title: 'Instant Quotes', desc: 'Stop waiting for brokers. Our AI generates comprehensive quote comparisons in less than 30 seconds.' },
-                                { icon: 'psychology', title: 'AI-Driven Accuracy', desc: 'Advanced neural networks analyze your risk profile to find the most accurate coverage for your specific needs.' },
-                                { icon: 'support_agent', title: '24/7 Support', desc: 'Our smart agents are available around the clock to assist with claims, updates, and any policy questions.' }
+                                { icon: 'timer', title: t('feat1Title'), desc: t('feat1Desc') },
+                                { icon: 'psychology', title: t('feat2Title'), desc: t('feat2Desc') },
+                                { icon: 'support_agent', title: t('feat3Title'), desc: t('feat3Desc') }
                             ].map((f, i) => (
                                 <div key={i} className="group bg-white dark:bg-slate-900 p-10 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
                                     <div className="w-14 h-14 bg-primary/10 text-primary rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
@@ -125,12 +113,12 @@ export default function HomePage() {
                     <div className="max-w-7xl mx-auto px-4">
                         <div className="flex flex-col lg:flex-row items-center gap-16">
                             <div className="lg:w-1/2 text-left">
-                                <h2 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-8 leading-tight tracking-tight">A Smarter Journey to Protection in 3 Easy Steps</h2>
+                                <h2 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white mb-8 leading-tight tracking-tight">{t('howTitle')}</h2>
                                 <div className="space-y-10">
                                     {[
-                                        { n: '1', title: 'Connect Your Profile', desc: 'Securely link your basic information. Our AI encrypts all data with military-grade security protocols.' },
-                                        { n: '2', title: 'AI Scan & Compare', desc: 'AegisAI scans millions of data points across top-rated carriers to find hidden discounts and optimal terms.' },
-                                        { n: '3', title: 'Select & Secure', desc: 'Pick the best plan and finalize your coverage digitally. No paperwork, no hassle, just peace of mind.' }
+                                        { n: '1', title: t('step1Title'), desc: t('step1Desc') },
+                                        { n: '2', title: t('step2Title'), desc: t('step2Desc') },
+                                        { n: '3', title: t('step3Title'), desc: t('step3Desc') }
                                     ].map((s, i) => (
                                         <div key={i} className="flex gap-6">
                                             <div className="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-bold shadow-lg shadow-primary/30">{s.n}</div>
@@ -152,8 +140,8 @@ export default function HomePage() {
                                             <span className="material-symbols-outlined">verified</span>
                                         </div>
                                         <div className="text-left">
-                                            <p className="text-xl font-bold text-slate-900 dark:text-white">100% Digital</p>
-                                            <p className="text-sm text-slate-500">Zero physical paperwork required</p>
+                                            <p className="text-xl font-bold text-slate-900 dark:text-white">{t('digital100')}</p>
+                                            <p className="text-sm text-slate-500">{t('digitalDesc')}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -169,23 +157,17 @@ export default function HomePage() {
                             <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-primary rounded-full blur-[120px] opacity-30"></div>
                             <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-primary/40 rounded-full blur-[120px] opacity-20"></div>
                             <div className="relative z-10 flex flex-col items-center gap-8">
-                                <h2 className="text-3xl md:text-5xl font-black tracking-tight max-w-2xl leading-tight text-center">Ready for a Smarter Way to Insure?</h2>
-                                <p className="text-slate-400 text-lg max-w-xl">Join over 500,000+ individuals and businesses who have optimized their coverage with AegisAI.</p>
+                                <h2 className="text-3xl md:text-5xl font-black tracking-tight max-w-2xl leading-tight text-center">{t('ctaTitle')}</h2>
+                                <p className="text-slate-400 text-lg max-w-xl">{t('ctaDesc')}</p>
                                 <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-                                    <button
-                                        onClick={() => navigate(user ? '/proposal' : '/login')}
-                                        className="bg-primary hover:bg-primary/90 text-white font-bold py-4 px-10 rounded-xl transition-all shadow-lg shadow-primary/40 text-lg active:scale-95"
-                                    >
-                                        Get Started Now
+                                    <button onClick={() => navigate(user ? '/proposal' : '/login')} className="bg-primary hover:bg-primary/90 text-white font-bold py-4 px-10 rounded-xl transition-all shadow-lg shadow-primary/40 text-lg active:scale-95">
+                                        {t('ctaBtn1')}
                                     </button>
-                                    <button
-                                        onClick={() => navigate(user ? '/dashboard' : '/login')}
-                                        className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold py-4 px-10 rounded-xl transition-all border border-white/20 text-lg"
-                                    >
-                                        Talk to an Expert
+                                    <button onClick={() => navigate(user ? '/dashboard' : '/login')} className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white font-bold py-4 px-10 rounded-xl transition-all border border-white/20 text-lg">
+                                        {t('ctaBtn2')}
                                     </button>
                                 </div>
-                                <p className="text-slate-500 text-sm">No credit card required. Scan takes less than 60 seconds.</p>
+                                <p className="text-slate-500 text-sm">{t('ctaNote')}</p>
                             </div>
                         </div>
                     </div>
@@ -203,9 +185,7 @@ export default function HomePage() {
                                 </div>
                                 <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">AegisAI</span>
                             </div>
-                            <p className="text-slate-500 max-w-sm mb-8">
-                                The next generation of insurance technology. Secure, fast, and driven by the world's most advanced AI risk assessment algorithms.
-                            </p>
+                            <p className="text-slate-500 max-w-sm mb-8">{t('footerTagline')}</p>
                             <div className="flex gap-4">
                                 <a className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-white transition-all" href="#">
                                     <span className="material-symbols-outlined text-xl">share</span>
@@ -216,30 +196,30 @@ export default function HomePage() {
                             </div>
                         </div>
                         <div>
-                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Products</h5>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">{t('footerProducts')}</h5>
                             <ul className="space-y-4 text-sm text-slate-500 font-medium">
-                                <li><a className="hover:text-primary" href="#">Life Insurance</a></li>
-                                <li><a className="hover:text-primary" href="#">Health Care</a></li>
-                                <li><a className="hover:text-primary" href="#">Auto Coverage</a></li>
-                                <li><a className="hover:text-primary" href="#">Home Shield</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerLifeIns')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerHealth')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerAuto')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerHome')}</a></li>
                             </ul>
                         </div>
                         <div>
-                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Company</h5>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">{t('footerCompany')}</h5>
                             <ul className="space-y-4 text-sm text-slate-500 font-medium">
-                                <li><a className="hover:text-primary" href="#">About Us</a></li>
-                                <li><a className="hover:text-primary" href="#">Careers</a></li>
-                                <li><a className="hover:text-primary" href="#">Privacy Policy</a></li>
-                                <li><a className="hover:text-primary" href="#">Terms of Service</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerAbout')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerCareers')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerPrivacy')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerTerms')}</a></li>
                             </ul>
                         </div>
                         <div>
-                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">Support</h5>
+                            <h5 className="font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-wider text-xs">{t('footerSupport')}</h5>
                             <ul className="space-y-4 text-sm text-slate-500 font-medium">
-                                <li><a className="hover:text-primary" href="#">Help Center</a></li>
-                                <li><a className="hover:text-primary" href="#">Documentation</a></li>
-                                <li><a className="hover:text-primary" href="#">Claim Center</a></li>
-                                <li><a className="hover:text-primary" href="#">Contact</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerHelp')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerDocs')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerClaim')}</a></li>
+                                <li><a className="hover:text-primary" href="#">{t('footerContact')}</a></li>
                             </ul>
                         </div>
                     </div>
