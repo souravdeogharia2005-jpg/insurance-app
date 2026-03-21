@@ -3,39 +3,84 @@ import { useApp } from '../context/AppContext';
 import { createProposal, scanDocument, calculateInsuranceAPI } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScanLine, Upload, Camera, CheckCircle, Loader, Activity, Shield, AlertTriangle, FileText, Download, TrendingUp, Info } from 'lucide-react';
+import { ScanLine, Upload, Camera, CheckCircle, Loader, Activity, Shield, AlertTriangle, FileText, Download, TrendingUp, Info, Eye, ClipboardList } from 'lucide-react';
+
+const API = import.meta.env.VITE_API_URL || '/api';
+
+// ─── Proposal form template ─────────────────────────────────────────────────
+const PROPOSAL_TEMPLATE = `Standard Proposal Form
+
+Name:
+Gender:
+Place of Residence:
+Date of Birth:
+
+Profession:
+Height:
+Weight:
+Yearly Income:
+Source of Income:
+
+Base Cover Required:
+CIR Cover Required:
+Accident Cover Required:
+
+--- Family History ---
+Both parents alive (>65)
+One alive (>65)
+Both died (<65)
+
+--- Health Conditions ---
+Thyroid:
+Asthma:
+Hypertension:
+Diabetes:
+Gut Disorder:
+
+--- Personal Habits ---
+Smoking:
+Alcohol:
+Tobacco:
+
+--- Occupation ---
+Athlete / Pilot / Driver / Oil Industry`;
 
 export default function ScanPage() {
     const { t, fc } = useApp();
     const navigate = useNavigate();
     const inputRef = useRef(null);
     const cameraRef = useRef(null);
+    const visionInputRef = useRef(null);
+    const visionCameraRef = useRef(null);
 
-    const [status, setStatus] = useState('idle'); // idle | scanning | calculating | done
+    const [status, setStatus] = useState('idle'); // idle | scanning | calculating | done | vision_scanning | vision_done
     const [scanProgress, setScanProgress] = useState(0);
     const [creating, setCreating] = useState(false);
+    const [activeMode, setActiveMode] = useState('emr'); // 'emr' | 'vision'
+    const [showTemplate, setShowTemplate] = useState(false);
 
     const [scannedData, setScannedData] = useState(null);
     const [calcResult, setCalcResult] = useState(null);
 
+    // Vision OCR state
+    const [visionRawText, setVisionRawText] = useState('');
+    const [visionStructured, setVisionStructured] = useState(null);
+    const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+    // ── Existing EMR scan flow (Gemini) ──────────────────────────────────────
     const handleScanFile = async (file) => {
         if (!file) return;
         setStatus('scanning');
         setScanProgress(0);
-
         try {
             const progressInterval = setInterval(() => {
                 setScanProgress(p => p >= 90 ? 90 : p + 5);
             }, 400);
-
-            // 1. Scan with Gemini
             const extractedData = await scanDocument(file);
             clearInterval(progressInterval);
             setScanProgress(100);
-
             setStatus('calculating');
 
-            // 2. Parse into user object for the new backend calculator
             const bd = extractedData.basic_details || {};
             const fh = extractedData.family_history || {};
             const ph = extractedData.personal_habits || {};
@@ -46,11 +91,9 @@ export default function ScanPage() {
                 if (v.includes('occasion')) return 1;
                 if (v.includes('moderate')) return 2;
                 if (v.includes('heavy') || v.includes('high')) return 3;
-                return 0; // never
+                return 0;
             };
-
             const parseNum = (v) => parseFloat(String(v || '').replace(/[^0-9.]/g, '')) || 0;
-
             const height = parseNum(bd.height_cm);
             const weight = parseNum(bd.weight_kg);
             const bmiNumber = height > 0 ? (weight / Math.pow(height / 100, 2)) : 0;
@@ -61,41 +104,27 @@ export default function ScanPage() {
             else if (pStr.includes('only one') || pStr.includes('after')) parentStatusStr = "one_above_65";
             else if (pStr.includes('both died') || pStr.includes('before')) parentStatusStr = "both_below_65";
 
-            // Determine Age
-            let calcAge = 30; // default
+            let calcAge = 30;
             if (bd.date_of_birth) {
                 const yearMatch = bd.date_of_birth.match(/\d{4}/);
                 if (yearMatch) calcAge = new Date().getFullYear() - parseInt(yearMatch[0]);
             }
 
             const userForCalc = {
-                age: calcAge,
-                bmi: bmiNumber,
-                family: parentStatusStr,
+                age: calcAge, bmi: bmiNumber, family: parentStatusStr,
                 diseases: {
-                    thyroid: parseNum(hc.thyroid),
-                    asthma: parseNum(hc.asthma),
-                    hypertension: parseNum(hc.hyper_tension),
-                    diabetes: parseNum(hc.diabetes_mellitus),
+                    thyroid: parseNum(hc.thyroid), asthma: parseNum(hc.asthma),
+                    hypertension: parseNum(hc.hyper_tension), diabetes: parseNum(hc.diabetes_mellitus),
                     gut: parseNum(hc.gut_disorder)
                 },
-                habits: {
-                    smoking: mapHabit(ph.smoking),
-                    alcohol: mapHabit(ph.alcoholic_drinks),
-                    tobacco: mapHabit(ph.tobacco)
-                },
-                lifeCover: parseNum(bd.base_cover_required),
-                cirCover: parseNum(bd.cir_cover_required),
-                accidentCover: parseNum(bd.accident_cover_required)
+                habits: { smoking: mapHabit(ph.smoking), alcohol: mapHabit(ph.alcoholic_drinks), tobacco: mapHabit(ph.tobacco) },
+                lifeCover: parseNum(bd.base_cover_required), cirCover: parseNum(bd.cir_cover_required), accidentCover: parseNum(bd.accident_cover_required)
             };
 
-            // 3. Call calculation API
             const finalCalc = await calculateInsuranceAPI(userForCalc);
-
             setScannedData({ ...extractedData.basic_details });
             setCalcResult(finalCalc);
             setStatus('done');
-
         } catch (error) {
             console.error('Workflow Failed:', error);
             alert(error.message || 'Failed to process document. Please try a clearer image.');
@@ -103,82 +132,138 @@ export default function ScanPage() {
         }
     };
 
+    // ── Google Vision OCR flow ────────────────────────────────────────────────
+    const handleVisionScan = async (file) => {
+        if (!file) return;
+        setStatus('vision_scanning');
+        setScanProgress(0);
+        try {
+            const progressInterval = setInterval(() => setScanProgress(p => p >= 90 ? 90 : p + 8), 500);
+            const token = localStorage.getItem('aegis-token');
+            const formData = new FormData();
+            formData.append('document', file);
+
+            const res = await fetch(`${API}/vision-scan`, {
+                method: 'POST',
+                body: formData,
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            clearInterval(progressInterval);
+            setScanProgress(100);
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Vision scan failed');
+
+            setVisionRawText(data.rawText || '');
+            setVisionStructured(data.structured || null);
+            setStatus('vision_done');
+        } catch (error) {
+            console.error('Vision scan failed:', error);
+            alert(error.message || 'Vision scan failed. Please try a clearer image.');
+            setStatus('idle');
+        }
+    };
+
+    // ── PDF download ──────────────────────────────────────────────────────────
+    const handleDownloadPDF = async () => {
+        setDownloadingPDF(true);
+        try {
+            const token = localStorage.getItem('aegis-token');
+            const res = await fetch(`${API}/download-pdf`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: JSON.stringify({ text: visionRawText, title: `AegisAI OCR - ${visionStructured?.name || 'Insurance Report'}` })
+            });
+            if (!res.ok) throw new Error('PDF generation failed');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'aegisai-ocr-report.pdf'; a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            alert(err.message || 'Failed to download PDF');
+        } finally {
+            setDownloadingPDF(false);
+        }
+    };
+
     const handleCreateProposal = async () => {
         setCreating(true);
         try {
             await createProposal({
-                name: scannedData.name || 'Unknown User',
-                age: 30, // fallback
-                gender: scannedData.gender || 'male',
-                dob: scannedData.date_of_birth || '',
-                income: scannedData.yearly_income || 0,
-                profession: scannedData.profession || '',
-                residence: scannedData.place_of_residence || '',
-                height: parseFloat(scannedData.height_cm) || 0,
-                weight: parseFloat(scannedData.weight_kg) || 0,
-                bmi: calcResult.bmi || 0,
-                emrScore: calcResult.emr,
-                emrBreakdown: {},
-                riskClass: 'Class ' + calcResult.lifeClass,
-                premium: {
-                    life: calcResult.lifePremium,
-                    cir: calcResult.cirPremium,
-                    accident: calcResult.accPremium,
-                    total: calcResult.total,
-                    lifeFactor: calcResult.lifeFactor,
-                    healthFactor: calcResult.healthFactor
-                },
-                status: 'pending',
-                source: 'scan'
+                name: scannedData.name || 'Unknown User', age: 30,
+                gender: scannedData.gender || 'male', dob: scannedData.date_of_birth || '',
+                income: scannedData.yearly_income || 0, profession: scannedData.profession || '',
+                residence: scannedData.place_of_residence || '', height: parseFloat(scannedData.height_cm) || 0,
+                weight: parseFloat(scannedData.weight_kg) || 0, bmi: calcResult.bmi || 0,
+                emrScore: calcResult.emr, emrBreakdown: {}, riskClass: 'Class ' + calcResult.lifeClass,
+                premium: { life: calcResult.lifePremium, cir: calcResult.cirPremium, accident: calcResult.accPremium, total: calcResult.total, lifeFactor: calcResult.lifeFactor, healthFactor: calcResult.healthFactor },
+                status: 'pending', source: 'scan'
             });
             navigate('/dashboard');
         } catch (err) {
-            alert('Failed to save proposal');
-            console.error(err);
-        } finally {
-            setCreating(false);
-        }
+            alert('Failed to save proposal'); console.error(err);
+        } finally { setCreating(false); }
     };
 
-    // Helper functions for UI
     const getRiskColor = (emr) => {
-        if (emr <= 60) return '#10b981'; // Green
-        if (emr <= 120) return '#f59e0b'; // Yellow
-        if (emr <= 225) return '#f97316'; // Orange
-        return '#dc2626'; // Red
+        if (emr <= 60) return '#10b981';
+        if (emr <= 120) return '#f59e0b';
+        if (emr <= 225) return '#f97316';
+        return '#dc2626';
     };
+
+    const isProcessing = ['scanning', 'calculating', 'vision_scanning'].includes(status);
 
     return (
         <div className="bg-[#F8FAFC] min-h-screen pt-28 pb-32 px-4 md:px-8">
             <div className="max-w-5xl mx-auto">
-                {/* Header */}
-                <div className="mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-6 print:hidden">
+
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6 print:hidden">
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
                             <span className="material-symbols-outlined text-xs">auto_awesome</span> {t('aiPoweredAnalysis')}
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-slate-900 flex items-center gap-4 tracking-tight">
-                            {t('scanTitle')}
-                        </h1>
+                        <h1 className="text-3xl md:text-5xl font-black text-slate-900 flex items-center gap-4 tracking-tight">{t('scanTitle')}</h1>
                         <p className="text-slate-500 mt-3 font-medium max-w-lg leading-relaxed">{t('scanSubtitle')}</p>
                     </div>
-                    {status === 'idle' && (
-                        <div className="flex gap-3">
-                            <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 px-6 py-3.5 bg-slate-900 text-white rounded-2xl shadow-xl shadow-slate-200 font-bold hover:bg-slate-800 active:scale-95 transition-all text-sm">
-                                <Upload size={18} /> {t('uploadImage')}
-                            </button>
-                            <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm shadow-sm">
-                                <Camera size={18} /> {t('useCamera')}
-                            </button>
-                            <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0])} />
-                            <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0])} />
-                        </div>
-                    )}
                 </div>
 
-                {/* Empty State */}
-                {status === 'idle' && (
-                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-16 text-center shadow-sm relative overflow-hidden group">
+                {/* ── Mode Tabs ────────────────────────────────────────────── */}
+                {(status === 'idle' || status === 'vision_done') && (
+                    <div className="flex gap-3 mb-8 print:hidden flex-wrap">
+                        <button onClick={() => { setActiveMode('emr'); setStatus('idle'); }} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all ${activeMode === 'emr' ? 'bg-slate-900 text-white shadow-xl' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                            <Activity size={16} /> EMR Calculator Scan
+                        </button>
+                        <button onClick={() => { setActiveMode('vision'); setStatus('idle'); }} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all ${activeMode === 'vision' ? 'bg-blue-600 text-white shadow-xl' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                            <Eye size={16} /> Google Vision OCR
+                        </button>
+                        <button onClick={() => setShowTemplate(!showTemplate)} className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                            <ClipboardList size={16} /> {showTemplate ? 'Hide' : 'View'} Proposal Template
+                        </button>
+                    </div>
+                )}
+
+                {/* ── Proposal Template ────────────────────────────────────── */}
+                <AnimatePresence>
+                    {showTemplate && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-8 overflow-hidden">
+                            <div className="bg-white border border-emerald-100 rounded-3xl p-6 shadow-sm">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600"><ClipboardList size={18} /></div>
+                                    <h3 className="font-black text-slate-900">📄 Standard Proposal Form Template</h3>
+                                </div>
+                                <pre className="text-xs text-slate-600 bg-slate-50 rounded-2xl p-5 overflow-x-auto font-mono leading-relaxed border border-slate-100 whitespace-pre-wrap">{PROPOSAL_TEMPLATE}</pre>
+                                <p className="text-xs text-slate-400 mt-3 font-medium">👆 Fill out this form, photograph it, then scan using Google Vision OCR above</p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Idle State ───────────────────────────────────────────── */}
+                {status === 'idle' && activeMode === 'emr' && (
+                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 md:p-16 text-center shadow-sm relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-1000" />
                         <div className="relative z-10">
                             <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner text-slate-900 border border-slate-100">
@@ -186,41 +271,73 @@ export default function ScanPage() {
                             </div>
                             <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">{t('autoEngineTitle')}</h3>
                             <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium leading-relaxed">{t('autoEngineDesc')}</p>
-                            <button onClick={() => inputRef.current?.click()} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
-                                {t('startScanning')}
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <button onClick={() => inputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                    <Upload size={18} /> {t('uploadImage')}
+                                </button>
+                                <button onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm">
+                                    <Camera size={18} /> {t('useCamera')}
+                                </button>
+                            </div>
+                            <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0])} />
+                            <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0])} />
                         </div>
                     </div>
                 )}
 
-                {/* Processing Overlay */}
+                {status === 'idle' && activeMode === 'vision' && (
+                    <div className="bg-white border-2 border-blue-100 rounded-[2.5rem] p-10 md:p-16 text-center shadow-sm relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/30 rounded-full -mr-32 -mt-32" />
+                        <div className="relative z-10">
+                            <div className="w-24 h-24 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner text-blue-600 border border-blue-100">
+                                <Eye size={40} strokeWidth={2} />
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Google Vision OCR</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto mb-3 font-medium leading-relaxed">Upload any handwritten or printed insurance form. Google Vision extracts all text instantly.</p>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-8">
+                                ✅ Powered by Google Cloud Vision API
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                <button onClick={() => visionInputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                    <Upload size={18} /> Upload Image
+                                </button>
+                                <button onClick={() => visionCameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-bold hover:bg-blue-50 active:scale-95 transition-all text-sm">
+                                    <Camera size={18} /> Use Camera
+                                </button>
+                            </div>
+                            <input ref={visionInputRef} type="file" accept="image/*" hidden onChange={e => handleVisionScan(e.target.files[0])} />
+                            <input ref={visionCameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleVisionScan(e.target.files[0])} />
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Processing Overlay ───────────────────────────────────── */}
                 <AnimatePresence>
-                    {(status === 'scanning' || status === 'calculating') && (
+                    {isProcessing && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 z-50 bg-white/80 backdrop-blur-xl flex items-center justify-center p-4">
                             <div className="max-w-sm w-full text-center">
                                 <div className="w-24 h-24 mx-auto mb-8 relative">
                                     <div className="absolute inset-0 border-[6px] border-slate-100 rounded-[2.5rem]" />
-                                    <motion.div 
-                                        className="absolute inset-0 border-[6px] border-slate-900 rounded-[2.5rem]"
-                                        initial={{ pathLength: 0 }}
-                                        animate={{ pathLength: 1 }}
+                                    <motion.div
+                                        className="absolute inset-0 border-[6px] border-blue-600 rounded-[2.5rem]"
+                                        animate={{ rotate: 360 }}
                                         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                        style={{ clipPath: 'inset(0 0 0 0 round 2.5rem)' }}
+                                        style={{ clipPath: 'inset(0 50% 50% 0 round 2.5rem)' }}
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center text-slate-900">
                                         <Activity size={36} className="animate-pulse" />
                                     </div>
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">
-                                    {status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
+                                    {status === 'vision_scanning' ? '🔍 Google Vision Scanning...' : status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
                                 </h3>
                                 <p className="text-sm text-slate-500 mb-8 font-medium">
-                                    {status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
+                                    {status === 'vision_scanning' ? `Extracting text via Google Vision API (${scanProgress}%)` : status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
                                 </p>
-                                {status === 'scanning' && (
+                                {(status === 'scanning' || status === 'vision_scanning') && (
                                     <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
-                                        <div className="bg-slate-900 h-full rounded-full transition-all duration-300" style={{ width: `${scanProgress}%` }} />
+                                        <div className="bg-blue-600 h-full rounded-full transition-all duration-300" style={{ width: `${scanProgress}%` }} />
                                     </div>
                                 )}
                             </div>
@@ -228,7 +345,64 @@ export default function ScanPage() {
                     )}
                 </AnimatePresence>
 
-                {/* Final Output UI */}
+                {/* ── Vision OCR Results ───────────────────────────────────── */}
+                {status === 'vision_done' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                            <div>
+                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">OCR Result</h2>
+                                <p className="text-slate-500 text-sm mt-1 font-medium">Text extracted by Google Cloud Vision API</p>
+                            </div>
+                            <div className="flex gap-3 flex-wrap">
+                                <button onClick={handleDownloadPDF} disabled={downloadingPDF || !visionRawText} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 shadow-lg shadow-blue-100">
+                                    {downloadingPDF ? <Loader className="animate-spin" size={16} /> : <Download size={16} />} Download PDF
+                                </button>
+                                <button onClick={() => { setStatus('idle'); setVisionRawText(''); setVisionStructured(null); }} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 active:scale-95 transition">
+                                    Scan New Form
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid lg:grid-cols-2 gap-6">
+                            {/* Raw OCR Text */}
+                            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"><Eye size={18} /></div>
+                                    <h4 className="font-black text-slate-900">Raw OCR Text</h4>
+                                    <span className="ml-auto bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-emerald-100">{t('ocrVerified')}</span>
+                                </div>
+                                <pre className="text-xs text-slate-600 bg-slate-50 rounded-2xl p-4 overflow-auto max-h-80 font-mono leading-relaxed border border-slate-100 whitespace-pre-wrap">
+                                    {visionRawText || 'No text detected'}
+                                </pre>
+                            </div>
+
+                            {/* Structured Fields */}
+                            {visionStructured && (
+                                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><FileText size={18} /></div>
+                                        <h4 className="font-black text-slate-900">Extracted Fields</h4>
+                                        <span className="ml-auto bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase px-2 py-1 rounded-full border border-indigo-100">AI Parsed</span>
+                                    </div>
+                                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                                        {Object.entries(visionStructured).map(([k, v]) => v !== null && v !== '' && v !== 0 ? (
+                                            <div key={k} className="flex justify-between items-center py-2 border-b border-slate-50">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</span>
+                                                <span className="font-bold text-slate-800 text-sm text-right max-w-[60%]">{String(v)}</span>
+                                            </div>
+                                        ) : null)}
+                                    </div>
+                                    {/* Quick-fill into EMR calculator */}
+                                    <button onClick={() => { setActiveMode('emr'); setStatus('idle'); }} className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 active:scale-95 transition">
+                                        → Run EMR Calculation on this Data
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── EMR Final Output UI ──────────────────────────────────── */}
                 {status === 'done' && calcResult && scannedData && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
 
@@ -246,26 +420,21 @@ export default function ScanPage() {
                         </div>
 
                         <div className="grid lg:grid-cols-3 gap-8">
-                            
-                            {/* LEFT COLUMN: Results */}
                             <div className="lg:col-span-2 space-y-8">
-                                
-                                {/* The Risk Score Meter */}
-                                <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 flex flex-col md:flex-row items-center gap-12 shadow-sm">
-                                    <div className="relative w-56 h-56 flex-shrink-0">
+                                <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-10 flex flex-col md:flex-row items-center gap-8 md:gap-12 shadow-sm">
+                                    <div className="relative w-48 h-48 md:w-56 md:h-56 flex-shrink-0">
                                         <svg className="w-full h-full -rotate-90">
                                             <circle cx="112" cy="112" r="92" className="stroke-slate-50" strokeWidth="20" fill="none" />
-                                            <circle cx="112" cy="112" r="92" className="transition-all duration-1000 ease-out" 
-                                                stroke={getRiskColor(calcResult.emr)} strokeWidth="20" 
-                                                strokeDasharray={578} strokeDashoffset={578 - (578 * Math.min(calcResult.emr, 300) / 300)} 
+                                            <circle cx="112" cy="112" r="92" className="transition-all duration-1000 ease-out"
+                                                stroke={getRiskColor(calcResult.emr)} strokeWidth="20"
+                                                strokeDasharray={578} strokeDashoffset={578 - (578 * Math.min(calcResult.emr, 300) / 300)}
                                                 strokeLinecap="round" fill="none" />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-6xl font-black text-slate-900">{calcResult.emr}</span>
+                                            <span className="text-5xl md:text-6xl font-black text-slate-900">{calcResult.emr}</span>
                                             <span className="text-[10px] font-black text-slate-400 tracking-[0.3em] uppercase mt-2">EMR SCORE</span>
                                         </div>
                                     </div>
-                                    
                                     <div className="flex-1 w-full space-y-5">
                                         <div className="p-6 bg-slate-50/50 border border-slate-100/50 rounded-3xl">
                                             <div className="flex items-center gap-4">
@@ -288,14 +457,12 @@ export default function ScanPage() {
                                     </div>
                                 </div>
 
-                                {/* PREMIUM GRID */}
                                 <div className="grid sm:grid-cols-2 gap-6">
-                                    <div className="bg-slate-900 text-white rounded-[2.5rem] p-10 relative overflow-hidden shadow-2xl">
+                                    <div className="bg-slate-900 text-white rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl">
                                         <div className="absolute right-[-10%] bottom-[-10%] opacity-5 blur-2xl scale-125 text-white"><TrendingUp size={240} /></div>
                                         <div className="relative z-10">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t('yearlyPremium')}</p>
-                                            <h3 className="text-5xl font-black text-white mb-8 tracking-tight">{fc(calcResult.total)}</h3>
-                                            
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{t('yearlyPremium')}</p>
+                                            <h3 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-tight">{fc(calcResult.total)}</h3>
                                             <div className="space-y-4">
                                                 <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">{t('lifeCore')}</span><span className="font-bold">{fc(calcResult.lifePremium)}</span></div>
                                                 <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-slate-400 font-medium">{t('criticalIllness')}</span><span className="font-bold">{fc(calcResult.cirPremium)}</span></div>
@@ -304,12 +471,11 @@ export default function ScanPage() {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm">
+                                    <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-10 shadow-sm">
                                         <h4 className="font-black text-slate-900 flex items-center gap-3 mb-8 tracking-tight">
                                             <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center"><FileText size={18} /></div>
                                             {t('riskInsights')}
                                         </h4>
-                                        
                                         <div className="space-y-5">
                                             {calcResult.emr > 0 ? (
                                                 <div className="bg-indigo-50 text-indigo-700 p-5 rounded-2xl text-sm flex gap-4 items-start border border-indigo-100/50">
@@ -322,16 +488,13 @@ export default function ScanPage() {
                                                     <p className="font-medium">Applicant qualifies for priority preferred rates. Excellent health profile detected.</p>
                                                 </div>
                                             )}
-                                            
                                             {calcResult.emr > 30 && (
                                                 <div className="bg-slate-50 p-5 rounded-2xl text-sm border border-slate-100">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <span className="material-symbols-outlined text-amber-500 text-lg">lightbulb</span>
                                                         <span className="text-slate-900 font-black uppercase text-[10px] tracking-widest">AI Strategy</span>
                                                     </div>
-                                                    <p className="text-slate-600 font-medium leading-relaxed italic">
-                                                        "Optimization possible: Significant premium reduction achievable by addressing lifestyle habits (-12% estimate)."
-                                                    </p>
+                                                    <p className="text-slate-600 font-medium leading-relaxed italic">"Optimization possible: Significant premium reduction achievable by addressing lifestyle habits (-12% estimate)."</p>
                                                 </div>
                                             )}
                                         </div>
@@ -339,14 +502,11 @@ export default function ScanPage() {
                                 </div>
                             </div>
 
-                            {/* RIGHT COLUMN: Extracted Data Profile */}
-                            <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm relative overflow-hidden">
+                            <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-10 shadow-sm relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8">
                                     <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">{t('ocrVerified')}</div>
                                 </div>
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-10">
-                                    {t('digitalTwinProfile')}
-                                </h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-10">{t('digitalTwinProfile')}</h4>
                                 <div className="space-y-6">
                                     <div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Full Name</p>
@@ -377,13 +537,11 @@ export default function ScanPage() {
                                             <p className="font-black text-slate-900 text-lg">{scannedData.cir_cover_required || '—'}</p>
                                         </div>
                                     </div>
-                                    
-                                    <button onClick={() => setStatus('idle')} className="w-full mt-10 px-6 py-4 bg-slate-50 text-slate-500 font-black rounded-2xl transition hover:bg-slate-100 active:scale-95 text-xs uppercase tracking-widest print:hidden border border-slate-100">
+                                    <button onClick={() => setStatus('idle')} className="w-full mt-6 px-6 py-4 bg-slate-50 text-slate-500 font-black rounded-2xl transition hover:bg-slate-100 active:scale-95 text-xs uppercase tracking-widest print:hidden border border-slate-100">
                                         {t('scanNewForm')}
                                     </button>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 )}

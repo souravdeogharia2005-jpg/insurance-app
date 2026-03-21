@@ -828,6 +828,205 @@ app.delete('/api/proposals/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// ==========================================
+// GOOGLE VISION OCR ROUTES
+// ==========================================
+
+// Helper: Get Google Access Token from service account (pure Node.js, no googleapis library needed)
+async function getGoogleAccessToken() {
+    const key = require('./vision-key.json');
+    const now = Math.floor(Date.now() / 1000);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+    const claim = Buffer.from(JSON.stringify({
+        iss: key.client_email,
+        scope: 'https://www.googleapis.com/auth/cloud-vision',
+        aud: key.token_uri,
+        iat: now,
+        exp: now + 3600
+    })).toString('base64url');
+
+    const sigInput = `${header}.${claim}`;
+    const crypto = require('crypto');
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(sigInput);
+    const signature = sign.sign(key.private_key, 'base64url');
+    const jwtToken = `${sigInput}.${signature}`;
+
+    const tokenRes = await fetch(key.token_uri, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwtToken}`
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) throw new Error('Failed to get Google access token: ' + JSON.stringify(tokenData));
+    return tokenData.access_token;
+}
+
+// POST /api/vision-scan — Google Vision OCR + structured data extraction
+app.post('/api/vision-scan', authenticateToken, async (req, res) => {
+    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+    upload.single('document')(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: 'Upload error: ' + err.message });
+        if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+
+        try {
+            console.log(`📸 Vision Scan: Processing ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
+
+            // 1. Get Google Access Token
+            const accessToken = await getGoogleAccessToken();
+
+            // 2. Call Google Vision document_text_detection
+            const imageBase64 = req.file.buffer.toString('base64');
+            const visionRes = await fetch(
+                'https://vision.googleapis.com/v1/images:annotate',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        requests: [{
+                            image: { content: imageBase64 },
+                            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
+                        }]
+                    })
+                }
+            );
+
+            const visionData = await visionRes.json();
+            if (visionData.error) throw new Error('Vision API error: ' + visionData.error.message);
+
+            const responses = visionData.responses || [];
+            const rawText = (responses[0]?.fullTextAnnotation?.text) || '';
+
+            if (!rawText.trim()) {
+                return res.json({ rawText: '', structured: null, message: 'No text detected. Please use a clearer image.' });
+            }
+
+            // 3. Parse structured fields from OCR text using Gemini for intelligence
+            let structured = null;
+            try {
+                const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+                const parsePrompt = `You are an insurance form data extractor. Given this OCR text from an insurance proposal form, extract the following fields into a JSON object. Return ONLY valid JSON, no markdown, no explanation.
+
+Fields to extract:
+- name (string)
+- gender (string: male/female/other)
+- place_of_residence (string)
+- date_of_birth (string)
+- profession (string)
+- height_cm (number)
+- weight_kg (number)
+- yearly_income (number in rupees)
+- source_of_income (string)
+- base_cover_required (number in rupees)
+- cir_cover_required (number in rupees)
+- accident_cover_required (number in rupees)
+- parent_status (string: "both_above_65" / "one_above_65" / "both_below_65" / "alive_healthy")
+- thyroid (number: 0=no, 1=mild, 2=moderate, 3=severe)
+- asthma (number: 0-3)
+- hypertension (number: 0-3)
+- diabetes_mellitus (number: 0-3)
+- gut_disorder (number: 0-3)
+- smoking (string: never/occasional/moderate/heavy)
+- alcoholic_drinks (string: never/occasional/moderate/heavy)
+- tobacco (string: never/occasional/moderate/heavy)
+- occupation_risk (string: normal/athlete/pilot/driver/merchant_navy/oil_gas)
+
+OCR Text:
+${rawText.substring(0, 4000)}`;
+
+                const result = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents: parsePrompt });
+                let jsonStr = result.text.trim();
+                jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+                structured = JSON.parse(jsonStr);
+            } catch (parseErr) {
+                console.warn('⚠️ Structured parsing failed, returning raw text only:', parseErr.message);
+            }
+
+            console.log(`✅ Vision Scan complete. Text length: ${rawText.length} chars`);
+            res.json({ rawText, structured, ocrEngine: 'google-vision' });
+
+        } catch (error) {
+            console.error('💥 Vision scan failed:', error.message);
+            res.status(500).json({ error: 'Vision scan failed: ' + error.message });
+        }
+    });
+});
+
+// POST /api/download-pdf — Generate and stream a PDF from OCR text
+app.post('/api/download-pdf', authenticateToken, async (req, res) => {
+    const { text, title } = req.body;
+    if (!text) return res.status(400).json({ error: 'No text provided' });
+
+    try {
+        // Build a simple PDF using raw PDF syntax (no library dependency)
+        const safeText = text.replace(/[^\x20-\x7E\n]/g, ' '); // Strip non-ASCII for safety
+        const lines = safeText.split('\n').filter(l => l.trim());
+        const docTitle = title || 'AegisAI - Insurance OCR Report';
+
+        // Build PDF content manually
+        let pdfContent = '';
+        let yPos = 750;
+        const lineHeight = 14;
+        const marginLeft = 50;
+        const pageHeight = 180; // lines per page roughly
+
+        let streamLines = [];
+        streamLines.push(`BT`);
+        streamLines.push(`/F1 14 Tf`);
+        streamLines.push(`${marginLeft} ${yPos} Td`);
+        streamLines.push(`(${docTitle.replace(/[()\\]/g, '\\$&')}) Tj`);
+        streamLines.push(`0 -20 Td`);
+        streamLines.push(`/F1 9 Tf`);
+        streamLines.push(`(Generated: ${new Date().toLocaleString('en-IN')}) Tj`);
+        streamLines.push(`0 -20 Td`);
+        streamLines.push(`(-----------------------------------) Tj`);
+        streamLines.push(`0 -16 Td`);
+
+        let lineCount = 0;
+        for (const line of lines) {
+            const safeLine = line.replace(/[()\\]/g, '\\$&').replace(/[^\x20-\x7E]/g, ' ').substring(0, 100);
+            streamLines.push(`(${safeLine}) Tj`);
+            streamLines.push(`0 -${lineHeight} Td`);
+            lineCount++;
+            // Simple page break simulation - just truncate at 60 lines
+            if (lineCount >= 60) {
+                streamLines.push(`(... [See full scan for remaining details] ...) Tj`);
+                break;
+            }
+        }
+        streamLines.push('ET');
+
+        const streamBody = streamLines.join('\n');
+        const streamLength = Buffer.byteLength(streamBody, 'binary');
+
+        const pdf = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>/Contents 4 0 R>>endobj
+4 0 obj<</Length ${streamLength}>>
+stream
+${streamBody}
+endstream
+endobj
+xref
+0 5
+trailer<</Size 5/Root 1 0 R>>
+startxref
+0
+%%EOF`;
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename="aegisai-ocr-report.pdf"');
+        res.send(Buffer.from(pdf, 'binary'));
+    } catch (error) {
+        console.error('PDF generation error:', error.message);
+        res.status(500).json({ error: 'PDF generation failed' });
+    }
+});
+
 // --- Health check ---
 app.get('/api/health', async (req, res) => {
     try {
