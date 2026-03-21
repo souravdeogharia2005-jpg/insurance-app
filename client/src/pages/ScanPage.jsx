@@ -261,6 +261,12 @@ export default function ScanPage() {
                     )}
                 </AnimatePresence>
 
+                {/* ── Hidden File Inputs ────────────────────────────────────── */}
+                <input ref={inputRef} id="scan-upload" type="file" accept="image/*" hidden onChange={e => { handleScanFile(e.target.files[0]); e.target.value = ''; }} />
+                <input ref={cameraRef} id="scan-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => { handleScanFile(e.target.files[0]); e.target.value = ''; }} />
+                <input ref={visionInputRef} id="vision-upload" type="file" accept="image/*" hidden onChange={e => { handleVisionScan(e.target.files[0]); e.target.value = ''; }} />
+                <input ref={visionCameraRef} id="vision-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => { handleVisionScan(e.target.files[0]); e.target.value = ''; }} />
+
                 {/* ── Idle State ───────────────────────────────────────────── */}
                 {status === 'idle' && activeMode === 'emr' && (
                     <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 md:p-16 text-center shadow-sm relative overflow-hidden group">
@@ -279,8 +285,6 @@ export default function ScanPage() {
                                     <Camera size={18} /> {t('useCamera')}
                                 </button>
                             </div>
-                            <input ref={inputRef} type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0])} />
-                            <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0])} />
                         </div>
                     </div>
                 )}
@@ -305,8 +309,6 @@ export default function ScanPage() {
                                     <Camera size={18} /> Use Camera
                                 </button>
                             </div>
-                            <input ref={visionInputRef} type="file" accept="image/*" hidden onChange={e => handleVisionScan(e.target.files[0])} />
-                            <input ref={visionCameraRef} type="file" accept="image/*" capture="environment" hidden onChange={e => handleVisionScan(e.target.files[0])} />
                         </div>
                     </div>
                 )}
