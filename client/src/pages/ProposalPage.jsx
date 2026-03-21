@@ -20,14 +20,15 @@ const DISEASES = [
 ];
 
 const OCCUPATIONS = [
-    { id: 'normal', label: 'Normal (Desk Job)', icon: Laptop },
-    { id: 'athlete', label: 'Athlete', icon: Activity },
-    { id: 'pilot', label: 'Pilot', icon: Plane },
-    { id: 'driver', label: 'Driver', icon: Car },
-    { id: 'merchant_navy', label: 'Merchant Navy', icon: Anchor },
-    { id: 'oil_industry', label: 'Oil/Gas Industry', icon: Factory },
-    { id: 'hazardous', label: 'Hazardous (Mining/Industrial)', icon: HardHat },
+    { id: 'normal',        label: 'Normal (Desk Job)',          icon: Laptop },
+    { id: 'athlete',       label: 'Professional Athlete',       icon: Activity },
+    { id: 'pilot',         label: 'Pilot / Air Crew',           icon: Plane },
+    { id: 'driver',        label: 'Driver (Public Carrier)',     icon: Car },
+    { id: 'merchant_navy', label: 'Merchant Navy',              icon: Anchor },
+    { id: 'oil_gas',       label: 'Oil & Gas Worker',           icon: Factory },
+    { id: 'hazardous',     label: 'Hazardous (Mining/Industrial)', icon: HardHat },
 ];
+
 
 export default function ProposalPage() {
     const { t, fc, user: authUser } = useApp();

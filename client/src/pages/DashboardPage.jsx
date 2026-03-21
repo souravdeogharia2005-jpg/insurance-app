@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getAdminProposals } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import SplitText from '../components/SplitText';
 
 export default function DashboardPage() {
     const { t, fc, fd } = useApp();
@@ -42,8 +43,18 @@ export default function DashboardPage() {
             <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Recommendation Engine</h1>
-                        <p className="text-slate-500 mt-1 font-medium">Personalized policy analytics based on AI risk profiling.</p>
+                        <h1 className="text-3xl font-extrabold tracking-tight" style={{color:'#1E3A8A'}}>
+                            <SplitText
+                                text={t('dashboard') === 'Dashboard' ? 'Recommendation Engine' : t('dashboard')}
+                                delay={35}
+                                duration={0.55}
+                                from={{ opacity: 0, y: 28 }}
+                                to={{ opacity: 1, y: 0 }}
+                                splitType="chars"
+                                tag="span"
+                            />
+                        </h1>
+                        <p className="mt-1 font-medium" style={{color:'#475569'}}>{t('avgEMR') ? t('aiPlatform') || 'Personalized policy analytics based on AI risk profiling.' : 'Personalized policy analytics based on AI risk profiling.'}</p>
                     </div>
                     <div className="flex gap-3">
                         <button onClick={() => navigate('/proposal')} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all text-slate-700">

@@ -1,43 +1,70 @@
 import { useRef, useEffect, useState } from 'react';
-import { gsap } from 'gsap';
 
-const SplitText = ({ text, className = '', delay = 50, duration = 0.8, ease = 'power3.out', splitType = 'chars', from = { opacity: 0, y: 40 }, to = { opacity: 1, y: 0 }, textAlign = 'center', tag = 'p', onLetterAnimationComplete }) => {
-    const containerRef = useRef(null);
-    const [isVisible, setIsVisible] = useState(false);
+/**
+ * SplitText - Lightweight GSAP-free animated text split
+ * Letters animate in one by one using CSS + framer-like approach
+ * No external GSAP license required
+ */
+const SplitText = ({
+  text = '',
+  className = '',
+  delay = 50,
+  duration = 0.6,
+  ease = 'cubic-bezier(0.16, 1, 0.3, 1)',
+  from = { opacity: 0, y: 30 },
+  to = { opacity: 1, y: 0 },
+  splitType = 'chars',
+  textAlign = 'center',
+  tag = 'span',
+  onLetterAnimationComplete,
+}) => {
+  const [visible, setVisible] = useState(false);
+  const ref = useRef(null);
 
-    useEffect(() => {
-        const observer = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } }, { threshold: 0.1 });
-        if (containerRef.current) observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, []);
+  // Intersection observer to trigger animation when in view
+  useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
 
-    useEffect(() => {
-        if (!isVisible || !containerRef.current) return;
-        const el = containerRef.current;
-        const elements = el.querySelectorAll('.split-char');
-        gsap.fromTo(elements, { ...from }, { ...to, duration, ease, stagger: delay / 1000, onComplete: () => onLetterAnimationComplete?.() });
-    }, [isVisible]);
+  // Build units (chars or words)
+  const units = splitType === 'words'
+    ? text.split(' ').map((w, i) => ({ text: w + (i < text.split(' ').length - 1 ? '\u00A0' : ''), key: i }))
+    : text.split('').map((c, i) => ({ text: c === ' ' ? '\u00A0' : c, key: i }));
 
-    const Tag = tag || 'p';
+  const Tag = tag;
 
-    // Split by words first, then by characters within each word
-    const words = text.split(' ').map((word, wordIndex) => (
-        <span key={wordIndex} style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
-            {word.split('').map((char, charIndex) => (
-                <span key={charIndex} className="split-char" style={{ display: 'inline-block', opacity: 0, shadow: 'none', willChange: 'transform, opacity' }}>
-                    {char}
-                </span>
-            ))}
-            {/* Add a space character after each word except the last one */}
-            {wordIndex < text.split(' ').length - 1 && (
-                <span className="split-char" style={{ display: 'inline-block', opacity: 0 }}>
-                    &nbsp;
-                </span>
-            )}
+  return (
+    <Tag
+      ref={ref}
+      className={`split-parent ${className}`}
+      style={{ textAlign, display: 'inline-block', overflow: 'visible' }}
+    >
+      {units.map(({ text: char, key }) => (
+        <span
+          key={key}
+          style={{
+            display: 'inline-block',
+            transition: `opacity ${duration}s ${ease}, transform ${duration}s ${ease}`,
+            transitionDelay: visible ? `${key * delay}ms` : '0ms',
+            opacity: visible ? to.opacity ?? 1 : from.opacity ?? 0,
+            transform: visible
+              ? `translateY(${to.y ?? 0}px)`
+              : `translateY(${from.y ?? 30}px)`,
+            willChange: 'transform, opacity',
+          }}
+          onTransitionEnd={key === units.length - 1 && visible ? onLetterAnimationComplete : undefined}
+        >
+          {char}
         </span>
-    ));
-
-    return <Tag ref={containerRef} className={`split-parent ${className}`} style={{ textAlign, overflow: 'hidden', display: 'block', whiteSpace: 'normal' }}>{words}</Tag>;
+      ))}
+    </Tag>
+  );
 };
 
 export default SplitText;
