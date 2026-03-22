@@ -55,7 +55,6 @@ export default function ScanPage() {
 
     const [status, setStatus] = useState('idle'); // idle | scanning | calculating | done | vision_scanning | vision_done
     const [scanProgress, setScanProgress] = useState(0);
-    const [creating, setCreating] = useState(false);
     const [activeMode, setActiveMode] = useState('emr'); // 'emr' | 'vision'
     const [showTemplate, setShowTemplate] = useState(false);
 
@@ -66,6 +65,74 @@ export default function ScanPage() {
     const [visionRawText, setVisionRawText] = useState('');
     const [visionStructured, setVisionStructured] = useState(null);
     const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+    // ── Shared EMR Processing & Auto-save ──────────────────────────────────────
+    const processAndSaveEMR = async (extractedData) => {
+        const bd = extractedData.basic_details || extractedData || {};
+        const fh = extractedData.family_history || extractedData || {};
+        const ph = extractedData.personal_habits || extractedData || {};
+        const hc = extractedData.health_conditions || extractedData || {};
+
+        const mapHabit = (val) => {
+            const v = (val || '').toLowerCase();
+            if (v.includes('occasion')) return 1;
+            if (v.includes('moderate')) return 2;
+            if (v.includes('heavy') || v.includes('high')) return 3;
+            return 0;
+        };
+        const parseNum = (v) => parseFloat(String(v || '').replace(/[^0-9.]/g, '')) || 0;
+        const height = parseNum(bd.height_cm);
+        const weight = parseNum(bd.weight_kg);
+        const bmiNumber = height > 0 ? (weight / Math.pow(height / 100, 2)) : 0;
+
+        let parentStatusStr = "alive_healthy";
+        const pStr = (fh.parent_status || '').toLowerCase();
+        if (pStr.includes('both surviving') || pStr.includes('alive')) parentStatusStr = "both_above_65";
+        else if (pStr.includes('only one') || pStr.includes('after')) parentStatusStr = "one_above_65";
+        else if (pStr.includes('both died') || pStr.includes('before')) parentStatusStr = "both_below_65";
+
+        let calcAge = 30;
+        if (bd.date_of_birth) {
+            const yearMatch = bd.date_of_birth.match(/\d{4}/);
+            if (yearMatch) calcAge = new Date().getFullYear() - parseInt(yearMatch[0]);
+        }
+
+        const userForCalc = {
+            age: calcAge, bmi: bmiNumber, family: parentStatusStr,
+            diseases: {
+                thyroid: parseNum(hc.thyroid), asthma: parseNum(hc.asthma),
+                hypertension: parseNum(hc.hyper_tension), diabetes: parseNum(hc.diabetes_mellitus),
+                gut: parseNum(hc.gut_disorder)
+            },
+            habits: { smoking: mapHabit(ph.smoking), alcohol: mapHabit(ph.alcoholic_drinks), tobacco: mapHabit(ph.tobacco) },
+            lifeCover: parseNum(bd.base_cover_required), cirCover: parseNum(bd.cir_cover_required), accidentCover: parseNum(bd.accident_cover_required),
+            occupation: (bd.profession || '').toLowerCase()
+        };
+
+        const finalCalc = await calculateInsuranceAPI(userForCalc);
+        setScannedData({ ...bd });
+        setCalcResult(finalCalc);
+
+        // Auto-save the proposal to DB
+        try {
+            await createProposal({
+                name: bd.name || 'Unknown User', age: calcAge,
+                gender: bd.gender || 'male', dob: bd.date_of_birth || '',
+                income: parseNum(bd.yearly_income) || 0, profession: bd.profession || '',
+                residence: bd.place_of_residence || '', height: height,
+                weight: weight, bmi: finalCalc.bmi || bmiNumber,
+                emrScore: finalCalc.emr, emrBreakdown: finalCalc.breakdown || {}, riskClass: 'Class ' + finalCalc.lifeClass,
+                premium: { life: finalCalc.lifePremium, cir: finalCalc.cirPremium, accident: finalCalc.accPremium, total: finalCalc.total, lifeFactor: finalCalc.lifeFactor, healthFactor: finalCalc.healthFactor },
+                status: 'pending', source: 'scan'
+            });
+            console.log("Proposal Auto-Saved!");
+        } catch (err) {
+            console.error('Failed to auto-save proposal:', err);
+        }
+
+        setActiveMode('emr');
+        setStatus('done');
+    };
 
     // ── Existing EMR scan flow (Gemini) ──────────────────────────────────────
     const handleScanFile = async (file, inputElement) => {
@@ -80,51 +147,8 @@ export default function ScanPage() {
             clearInterval(progressInterval);
             setScanProgress(100);
             setStatus('calculating');
-
-            const bd = extractedData.basic_details || {};
-            const fh = extractedData.family_history || {};
-            const ph = extractedData.personal_habits || {};
-            const hc = extractedData.health_conditions || {};
-
-            const mapHabit = (val) => {
-                const v = (val || '').toLowerCase();
-                if (v.includes('occasion')) return 1;
-                if (v.includes('moderate')) return 2;
-                if (v.includes('heavy') || v.includes('high')) return 3;
-                return 0;
-            };
-            const parseNum = (v) => parseFloat(String(v || '').replace(/[^0-9.]/g, '')) || 0;
-            const height = parseNum(bd.height_cm);
-            const weight = parseNum(bd.weight_kg);
-            const bmiNumber = height > 0 ? (weight / Math.pow(height / 100, 2)) : 0;
-
-            let parentStatusStr = "alive_healthy";
-            const pStr = (fh.parent_status || '').toLowerCase();
-            if (pStr.includes('both surviving') || pStr.includes('alive')) parentStatusStr = "both_above_65";
-            else if (pStr.includes('only one') || pStr.includes('after')) parentStatusStr = "one_above_65";
-            else if (pStr.includes('both died') || pStr.includes('before')) parentStatusStr = "both_below_65";
-
-            let calcAge = 30;
-            if (bd.date_of_birth) {
-                const yearMatch = bd.date_of_birth.match(/\d{4}/);
-                if (yearMatch) calcAge = new Date().getFullYear() - parseInt(yearMatch[0]);
-            }
-
-            const userForCalc = {
-                age: calcAge, bmi: bmiNumber, family: parentStatusStr,
-                diseases: {
-                    thyroid: parseNum(hc.thyroid), asthma: parseNum(hc.asthma),
-                    hypertension: parseNum(hc.hyper_tension), diabetes: parseNum(hc.diabetes_mellitus),
-                    gut: parseNum(hc.gut_disorder)
-                },
-                habits: { smoking: mapHabit(ph.smoking), alcohol: mapHabit(ph.alcoholic_drinks), tobacco: mapHabit(ph.tobacco) },
-                lifeCover: parseNum(bd.base_cover_required), cirCover: parseNum(bd.cir_cover_required), accidentCover: parseNum(bd.accident_cover_required)
-            };
-
-            const finalCalc = await calculateInsuranceAPI(userForCalc);
-            setScannedData({ ...extractedData.basic_details });
-            setCalcResult(finalCalc);
-            setStatus('done');
+            
+            await processAndSaveEMR(extractedData);
         } catch (error) {
             console.error('Workflow Failed:', error);
             alert(error.message || 'Failed to process document. Please try a clearer image.');
@@ -410,8 +434,8 @@ export default function ScanPage() {
                                         ) : null)}
                                     </div>
                                     {/* Quick-fill into EMR calculator */}
-                                    <button onClick={() => { setActiveMode('emr'); setStatus('idle'); }} className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 active:scale-95 transition">
-                                        → Run EMR Calculation on this Data
+                                    <button onClick={() => { setStatus('calculating'); setTimeout(() => processAndSaveEMR(visionStructured), 500); }} className="w-full mt-4 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-800 active:scale-95 transition flex items-center justify-center gap-2">
+                                        <Activity size={16} /> Run EMR Calculation & Auto-Save
                                     </button>
                                 </div>
                             )}
@@ -429,9 +453,9 @@ export default function ScanPage() {
                                 <button onClick={() => window.print()} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition flex items-center gap-2 shadow-sm">
                                     <Download size={18} /> {t('exportPDF')}
                                 </button>
-                                <button onClick={handleCreateProposal} disabled={creating} className="px-8 py-3 bg-slate-900 text-white rounded-2xl shadow-2xl shadow-slate-200 font-bold hover:bg-slate-800 active:scale-95 transition flex items-center gap-2">
-                                    {creating ? <Loader className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-                                    {t('finalizeQuote')}
+                                <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl shadow-emerald-200 font-bold hover:bg-emerald-700 active:scale-95 transition flex items-center gap-2">
+                                    <CheckCircle size={18} />
+                                    Saved to Dashboard →
                                 </button>
                             </div>
                         </div>
