@@ -4,6 +4,7 @@ import { createProposal, scanDocument, calculateInsuranceAPI } from '../utils/ap
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScanLine, Upload, Camera, CheckCircle, Loader, Activity, Shield, AlertTriangle, FileText, Download, TrendingUp, Info, Eye, ClipboardList } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 
@@ -65,6 +66,23 @@ export default function ScanPage() {
     const [visionRawText, setVisionRawText] = useState('');
     const [visionStructured, setVisionStructured] = useState(null);
     const [downloadingPDF, setDownloadingPDF] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    const downloadProposalPDF = () => {
+        const element = document.getElementById('proposal-report');
+        if (!element) return;
+        setIsExporting(true);
+        setTimeout(() => {
+            const opt = {
+                margin:       [0.5, 0.5, 0.5, 0.5],
+                filename:     `AegisAI_Proposal_${scannedData?.name?.replace(/ /g, '_') || 'Report'}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save().then(() => setIsExporting(false));
+        }, 150);
+    };
 
     // ── Shared EMR Processing & Auto-save ──────────────────────────────────────
     const processAndSaveEMR = async (extractedData) => {
@@ -445,20 +463,29 @@ export default function ScanPage() {
 
                 {/* ── EMR Final Output UI ──────────────────────────────────── */}
                 {status === 'done' && calcResult && scannedData && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div id="proposal-report" className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 bg-transparent sm:bg-white sm:p-10 sm:rounded-[3rem] sm:shadow-sm">
 
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-4 print:hidden">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-4">
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('underwritingReport')}</h2>
-                            <div className="flex gap-4">
-                                <button onClick={() => window.print()} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition flex items-center gap-2 shadow-sm">
-                                    <Download size={18} /> {t('exportPDF')}
-                                </button>
-                                <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl shadow-emerald-200 font-bold hover:bg-emerald-700 active:scale-95 transition flex items-center gap-2">
-                                    <CheckCircle size={18} />
-                                    Saved to Dashboard →
-                                </button>
-                            </div>
+                            {!isExporting && (
+                                <div className="flex gap-4 print:hidden">
+                                    <button onClick={downloadProposalPDF} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 active:scale-95 transition flex items-center gap-2">
+                                        <Download size={18} /> {t('exportPDF', 'Download Official PDF')}
+                                    </button>
+                                    <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl shadow-emerald-200 font-bold hover:bg-emerald-700 active:scale-95 transition flex items-center gap-2">
+                                        <CheckCircle size={18} />
+                                        Saved to Dashboard →
+                                    </button>
+                                </div>
+                            )}
                         </div>
+                        
+                        {isExporting && (
+                            <div className="mb-4 pb-4 border-b border-slate-100 flex items-center justify-between">
+                                <span className="font-black text-slate-900 tracking-widest text-lg uppercase">AEGIS PROTOCOL</span>
+                                <span className="font-bold text-slate-400 text-xs">CONFIDENTIAL REPORT • {new Date().toLocaleDateString()}</span>
+                            </div>
+                        )}
 
                         <div className="grid lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-2 space-y-8">

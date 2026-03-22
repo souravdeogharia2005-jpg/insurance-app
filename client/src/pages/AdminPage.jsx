@@ -58,6 +58,23 @@ export default function AdminPage() {
         if (viewProp) { await updateAdminProposal(viewProp.id, viewProp); setViewProp(null); loadData(); }
     };
 
+    const exportAnalytics = () => {
+        if (!proposals.length) return alert("No data to export");
+        const headers = ["ID", "Name", "Gender", "Age", "BMI", "EMR Score", "Risk Class", "Total Premium", "Status", "Date"];
+        const rows = proposals.map(p => [
+            p.id, `"${p.name || ''}"`, p.gender || '', p.age || '', p.bmi || '', p.emrScore || '',
+            p.riskClass || '', p.premium?.total || '', p.status || '', new Date(p.createdAt).toLocaleDateString()
+        ]);
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `AegisAI_Analytics_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const filtered = proposals.filter(p => {
         const matchSearch = !search || (p.name || '').toLowerCase().includes(search.toLowerCase()) || (p.id || '').toLowerCase().includes(search.toLowerCase());
         const matchFilter = filter === 'all' || p.status === filter;
@@ -162,7 +179,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center gap-4">
                         <button onClick={loadData} className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm hover:bg-slate-50 transition-all text-slate-400"><Activity size={20} /></button>
-                        <button className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-slate-950/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm tracking-wide"><Download size={18} /> Export Analytics</button>
+                        <button onClick={exportAnalytics} className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black shadow-xl shadow-slate-950/20 flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all text-sm tracking-wide"><Download size={18} /> Export Analytics</button>
                     </div>
                 </div>
 
