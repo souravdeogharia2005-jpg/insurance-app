@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
+import SplitText from '../components/SplitText';
 
 export default function HomePage() {
     const navigate = useNavigate();
@@ -27,8 +28,29 @@ export default function HomePage() {
                                     <span className="text-primary text-xs font-bold uppercase tracking-wider">{t('heroBadge')}</span>
                                 </div>
                                 <div className="flex flex-col gap-4 text-left">
-                                    <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight text-left">
-                                        {t('heroTitle')} <span className="text-primary">{t('heroTitleAccent')}</span>
+                                    <h1 className="flex flex-wrap gap-x-3 text-4xl sm:text-5xl lg:text-7xl font-black leading-[1.1] tracking-tight text-left">
+                                        <SplitText
+                                          text={t('heroTitle')}
+                                          className="text-slate-900 dark:text-white"
+                                          delay={35}
+                                          duration={1.2}
+                                          ease="power4.out"
+                                          from={{ opacity: 0, y: 40 }}
+                                          to={{ opacity: 1, y: 0 }}
+                                          textAlign="left"
+                                          tag="span"
+                                        />
+                                        <SplitText
+                                          text={t('heroTitleAccent')}
+                                          className="text-primary"
+                                          delay={35}
+                                          duration={1.2}
+                                          ease="power4.out"
+                                          from={{ opacity: 0, y: 40 }}
+                                          to={{ opacity: 1, y: 0 }}
+                                          textAlign="left"
+                                          tag="span"
+                                        />
                                     </h1>
                                     <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg text-left">
                                         {t('heroSubtitle')}
