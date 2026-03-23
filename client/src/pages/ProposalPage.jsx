@@ -409,13 +409,14 @@ export default function ProposalPage() {
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Parent Health Status</label>
                                                 <div className="grid gap-3">
                                                     {[
-                                                        { id: 'both_above_65', label: 'Both parents alive (> 65)' },
-                                                        { id: 'one_above_65', label: 'Only one parent alive (> 65)' },
-                                                        { id: 'both_below_65', label: 'Parents died (< 65) or Both Alive (<65)' },
+                                                        { id: 'both_above_65', label: 'Both parents alive (> 65)', emr: '−10', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                                                        { id: 'one_above_65',  label: 'Only one parent alive (> 65)', emr: '−5',  badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+                                                        { id: 'both_below_65', label: 'Both parents died (< 65)',     emr: '+10', badge: 'bg-red-50 text-red-700 border-red-200' },
                                                     ].map(opt => (
-                                                        <button key={opt.id} onClick={() => setForm({...form, parentStatus: opt.id})} className={`p-4 rounded-2xl text-left border-2 transition-all font-bold text-sm`}
+                                                        <button key={opt.id} onClick={() => setForm({...form, parentStatus: opt.id})} className={`p-4 rounded-2xl text-left border-2 transition-all font-bold text-sm flex justify-between items-center`}
                                                         style={form.parentStatus === opt.id ? {background:'#EFF6FF', borderColor:'#2563EB', color:'#1E3A8A'} : {background:'#F8FBFF', borderColor:'#BFDBFE', color:'#475569'}}>
-                                                            {opt.label}
+                                                            <span>{opt.label}</span>
+                                                            <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${opt.badge}`}>{opt.emr} EMR</span>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -629,6 +630,58 @@ export default function ProposalPage() {
                                     ) : (
                                         <p className="text-[10px] font-medium leading-relaxed opacity-60">"Excellent profile. Standard preferred rates apply. No extra loading required."</p>
                                     )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* LIVE PREMIUM ENGINE CARD */}
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-6 opacity-10"><TrendingUp size={100} /></div>
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-200 mb-6">⚡ Live Premium Engine</p>
+
+                                {/* Total Premium Big Display */}
+                                <div className="mb-6">
+                                    <p className="text-[10px] font-black uppercase text-indigo-300 tracking-widest mb-1">Total Annual Premium</p>
+                                    <p className="text-5xl font-black tracking-tight">{fc(calcResult.total)}</p>
+                                    <p className="text-[10px] text-indigo-300 font-bold mt-1">
+                                        ≈ {fc(Math.round(calcResult.total / 12))}/month
+                                    </p>
+                                </div>
+
+                                {/* Breakdown rows */}
+                                <div className="space-y-3 border-t border-white/10 pt-5">
+                                    {[
+                                        { label: 'Life + Accident Rider', value: calcResult.lifePremium, color: 'text-white' },
+                                        { label: 'Critical Illness (CIR)',  value: calcResult.cirPremium,  color: 'text-indigo-200' },
+                                        { label: 'Accident Rider (Acc)',     value: calcResult.accPremium,  color: 'text-indigo-300' },
+                                    ].map(row => (
+                                        <div key={row.label} className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wide">{row.label}</span>
+                                            <span className={`text-sm font-black ${row.color}`}>{fc(row.value)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Factor chips */}
+                                <div className="flex gap-3 mt-5 flex-wrap">
+                                    <span className="px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase">
+                                        Risk Class {calcResult.lifeClass}
+                                    </span>
+                                    <span className="px-3 py-1 rounded-full bg-white/10 text-[10px] font-black uppercase">
+                                        ×{calcResult.lifeFactor} Loading
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${calcResult.emr > 100 ? 'bg-red-500/30' : calcResult.emr > 50 ? 'bg-amber-400/30' : 'bg-emerald-400/20'}`}>
+                                        EMR {calcResult.emr}
+                                    </span>
+                                </div>
+
+                                {/* Family EMR indicator */}
+                                <div className="mt-4 p-3 bg-white/5 rounded-xl border border-white/10 flex items-center justify-between">
+                                    <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wide">Family History Impact</span>
+                                    <span className={`text-sm font-black ${calcResult.breakdown.family < 0 ? 'text-emerald-400' : calcResult.breakdown.family > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                                        {calcResult.breakdown.family > 0 ? '+' : ''}{calcResult.breakdown.family} EMR
+                                    </span>
                                 </div>
                             </div>
                         </div>
