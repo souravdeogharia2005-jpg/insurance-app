@@ -115,14 +115,14 @@ function GSAPScrollReveal() {
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner" /></div>;
+  if (loading) return <div className="flex flex-col items-center justify-center py-20"><div className="spinner" /></div>;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
 function AuthGuard({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="spinner" /></div>;
+  if (loading) return <div className="flex flex-col items-center justify-center py-20"><div className="spinner" /></div>;
   if (user) return <Navigate to="/dashboard" replace />;
   return children;
 }

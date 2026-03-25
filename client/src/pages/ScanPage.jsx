@@ -273,7 +273,7 @@ export default function ScanPage() {
     const isProcessing = ['scanning', 'calculating', 'vision_scanning'].includes(status);
 
     return (
-        <div className="bg-[#F8FAFC] min-h-screen pt-28 pb-32 px-4 md:px-8">
+        <div className="bg-[#F8FAFC] w-full pt-8 pb-32 px-4 md:px-8">
             <div className="max-w-5xl mx-auto">
 
                 {/* ── Header ──────────────────────────────────────────────── */}

@@ -185,7 +185,7 @@ export default function ProposalPage() {
 
     // ── Success screen ────────────────────────────────────────────────────────
     if (submittedId) return (
-        <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'linear-gradient(160deg,#f0f7ff,#f8fbff)' }}>
+        <div className="flex flex-col items-center justify-center p-6 py-12" style={{ background: 'linear-gradient(160deg,#f0f7ff,#f8fbff)' }}>
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 className="p-10 rounded-[2.5rem] shadow-2xl text-center max-w-lg w-full bg-white border border-blue-100">
                 <div className="w-24 h-24 rounded-[2rem] flex items-center justify-center text-white mx-auto mb-8 shadow-xl" style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)' }}>
@@ -220,7 +220,7 @@ export default function ProposalPage() {
     const prev = () => setStep(s => Math.max(s - 1, 0));
 
     return (
-        <div className="min-h-screen pt-20 pb-16 px-4 md:px-6" style={{ background: '#f0f7ff' }}>
+        <div className="w-full pt-8 pb-16 px-4 md:px-6" style={{ background: '#f0f7ff' }}>
             <div className="max-w-7xl mx-auto">
 
                 {/* ── Page Heading ── */}

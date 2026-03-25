@@ -83,7 +83,7 @@ export default function AdminPage() {
 
     if (!unlocked) {
         return (
-            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
+            <div className="w-full h-full min-h-[80vh] bg-[#F8FAFC] flex flex-col items-center justify-center p-6 py-12 relative overflow-hidden">
                 {/* Abstract Background Decorations */}
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/5 rounded-full blur-[120px]"></div>
@@ -162,10 +162,10 @@ export default function AdminPage() {
         );
     }
 
-    if (loading) return <div className="min-h-[80vh] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+    if (loading) return <div className="w-full h-full min-h-[60vh] flex flex-col items-center justify-center py-20"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] font-jakarta">
+        <div className="w-full bg-[#F8FAFC] font-jakarta">
             <div className="max-w-7xl mx-auto px-5 py-8 lg:py-12 space-y-10">
 
                 {/* Dashboard Header */}

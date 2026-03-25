@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
     useEffect(() => { getAdminProposals().then(p => { setProposals(p); setLoading(false); }).catch(() => setLoading(false)); }, []);
 
-    if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full" /></div>;
+    if (loading) return <div className="w-full h-full min-h-[60vh] flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full" /></div>;
 
     const approved = proposals.filter(p => p.status === 'approved').length;
     const approvalRate = proposals.length ? Math.round((approved / proposals.length) * 100) : 0;
@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
     const filteredProposals = proposals.filter(p => filter === 'all' || p.status === filter);
     return (
-        <div className="bg-[#F8FAFC] min-h-screen">
+        <div className="bg-[#F8FAFC] w-full">
             {/* Desktop Dashboard */}
             <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -280,7 +280,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Mobile Dashboard */}
-            <div className="md:hidden pb-24 px-4 pt-6 bg-[#F8FAFC] min-h-screen">
+            <div className="md:hidden pb-24 px-4 pt-6 bg-[#F8FAFC] w-full">
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-slate-100">
