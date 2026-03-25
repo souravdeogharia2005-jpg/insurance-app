@@ -1063,6 +1063,118 @@ app.get('/api/diag', (req, res) => {
     });
 });
 
+// ==========================================
+// GROQ AI ENDPOINTS
+// ==========================================
+
+async function callGroq(messages, temperature = 0.7) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages,
+            temperature,
+            max_tokens: 1024,
+        }),
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Groq API error');
+    }
+    const data = await res.json();
+    return data.choices[0].message.content;
+}
+
+// POST /api/explain — Explain premium in simple or detailed mode
+app.post('/api/explain', authenticateToken, async (req, res) => {
+    try {
+        const { user, calc, mode } = req.body; // mode: 'simple' | 'detailed'
+        const isSimple = mode !== 'detailed';
+
+        const systemPrompt = isSimple
+            ? `You are a friendly insurance advisor explaining a premium calculation to a teenager. Use very simple words, no jargon. Use emojis. Max 120 words.`
+            : `You are a senior insurance actuary explaining a premium calculation precisely. Include percentages and technical terms. Max 200 words.`;
+
+        const userMsg = `
+User Profile:
+- Age: ${user.age}, Gender: ${user.gender || 'unspecified'}
+- BMI: ${user.bmi || 'not provided'}, Smoking: ${user.smoking > 0 ? 'Yes (level '+user.smoking+'/3)' : 'No'}
+- Health Conditions: ${JSON.stringify(user.diseases || {})}
+- Family History: ${user.parentStatus || 'unknown'}
+
+Calculation Result:
+- EMR Score: ${calc.emr}
+- Life Class: ${calc.lifeClass} (Factor ×${calc.lifeFactor})
+- Total Annual Premium: ₹${calc.total?.toLocaleString('en-IN')}
+- EMR Breakdown: BMI +${calc.breakdown?.bmi??0}, Family ${calc.breakdown?.family??0}, Health +${calc.breakdown?.health??0}, Lifestyle +${calc.breakdown?.lifestyle??0}
+
+Explain in ${isSimple ? 'simple friendly language (Explain Like I\'m 10)' : 'detailed technical language'} why this premium was calculated. End with: "Your premium is mainly driven by [top 2 factors]."
+`;
+
+        const explanation = await callGroq([
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: userMsg },
+        ]);
+
+        res.json({ success: true, explanation });
+    } catch (error) {
+        console.error('Groq explain error:', error.message);
+        res.status(500).json({ error: 'AI explanation failed: ' + error.message });
+    }
+});
+
+// POST /api/risk-profile — Generate AI risk profile + tips + roadmap
+app.post('/api/risk-profile', authenticateToken, async (req, res) => {
+    try {
+        const { user, calc } = req.body;
+
+        const prompt = `
+You are an insurance risk analyst. Based on the user's profile, generate a JSON response with the following structure:
+
+USER PROFILE:
+- Age: ${user.age}, BMI: ${user.bmi}
+- Smoking: level ${user.smoking || 0}/3, Alcohol: level ${user.alcohol || 0}/3, Tobacco: level ${user.tobacco || 0}/3
+- Conditions: ${JSON.stringify(user.diseases || {})}
+- Family History: ${user.parentStatus}
+- EMR Score: ${calc.emr}, Life Class: ${calc.lifeClass}
+- Current Premium: ₹${calc.total?.toLocaleString('en-IN')}
+
+Return ONLY valid JSON (no markdown, no extra text):
+{
+  "riskLevel": "Low" | "Medium" | "High" | "Very High",
+  "riskPercentage": <number 0-100>,
+  "summary": "<one sentence: lifestyle risk % and main driver>",
+  "tips": [
+    { "action": "<action to take>", "saving": "<estimated ₹ saving per year>", "priority": "High" | "Medium" | "Low" },
+    { "action": "...", "saving": "...", "priority": "..." },
+    { "action": "...", "saving": "...", "priority": "..." }
+  ],
+  "roadmap": [
+    { "step": 1, "title": "<short title>", "description": "<what to do>", "timeframe": "<e.g. 3 months>", "savings": "<₹ amount>" },
+    { "step": 2, "title": "...", "description": "...", "timeframe": "...", "savings": "..." },
+    { "step": 3, "title": "...", "description": "...", "timeframe": "...", "savings": "..." }
+  ]
+}
+`;
+
+        const raw = await callGroq([{ role: 'user', content: prompt }], 0.5);
+
+        // Extract JSON safely
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON in Groq response');
+        const profile = JSON.parse(jsonMatch[0]);
+
+        res.json({ success: true, profile });
+    } catch (error) {
+        console.error('Groq risk-profile error:', error.message);
+        res.status(500).json({ error: 'Risk profile generation failed: ' + error.message });
+    }
+});
+
 // --- Start Server ---
 app.listen(PORT, () => {
     console.log(`\n🚀 AegisAI Server v${SERVER_VERSION} listening on port ${PORT}`);

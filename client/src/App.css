@@ -449,3 +449,22 @@ html.dark .section-divider::before, html.dark .section-divider::after { backgrou
   font-size: .7rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .1em; color: #2563EB; white-space: nowrap;
 }
+
+/* ── Premium Breakdown: range sliders ─── */
+.range-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px; border-radius: 4px;
+  background: rgba(255,255,255,0.12); outline: none; cursor: pointer;
+}
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #2563EB; cursor: pointer;
+  border: 3px solid #fff; box-shadow: 0 0 8px rgba(37,99,235,0.5);
+  transition: transform 0.15s;
+}
+.range-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.range-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #2563EB; cursor: pointer; border: 3px solid #fff;
+}

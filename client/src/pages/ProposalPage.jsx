@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { createProposal } from '../utils/api';
 import { calculateInsurance } from '../utils/emr';
@@ -60,6 +61,7 @@ function Gauge({ emr, color, trackColor = '#1e293b', textColor = 'text-white', s
 
 export default function ProposalPage() {
     const { t, fc, user: authUser } = useApp();
+    const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
     const [submittedId, setSubmittedId] = useState(null);
@@ -203,7 +205,14 @@ export default function ProposalPage() {
                         <p className="text-xl font-black text-slate-900">{fc(live.total)}</p>
                     </div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3">
+                    <button onClick={() => {
+                        sessionStorage.setItem('aegis_breakdown', JSON.stringify({ user: form, calc: live }));
+                        navigate('/breakdown');
+                    }} className="w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition shadow-xl text-white"
+                        style={{ background: 'linear-gradient(135deg, #2563EB, #7C3AED)' }}>
+                        🧠 View Premium Breakdown
+                    </button>
                     <button onClick={generatePDF} className="w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-black hover:bg-slate-200 flex items-center justify-center gap-2 transition">
                         <Download size={20} /> Download Report
                     </button>

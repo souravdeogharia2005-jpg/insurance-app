@@ -1,0 +1,24 @@
+{
+  "name": "insurance",
+  "version": "1.0.0",
+  "description": "",
+  "main": "capture_dom.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/souravdeogharia2005-jpg/insurance-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/souravdeogharia2005-jpg/insurance-app/issues"
+  },
+  "homepage": "https://github.com/souravdeogharia2005-jpg/insurance-app#readme",
+  "dependencies": {
+    "puppeteer": "^24.40.0"
+  }
+}

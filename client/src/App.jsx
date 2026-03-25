@@ -9,6 +9,7 @@ import ProposalPage from './pages/ProposalPage';
 import DashboardPage from './pages/DashboardPage';
 import ScanPage from './pages/ScanPage';
 import AdminPage from './pages/AdminPage';
+import PremiumBreakdownPage from './pages/PremiumBreakdownPage';
 import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -157,6 +158,7 @@ function AppLayout() {
             <Route path="/proposal"  element={<ProtectedRoute><PageTransition><ProposalPage /></PageTransition></ProtectedRoute>} />
             <Route path="/scan"      element={<ProtectedRoute><PageTransition><ScanPage /></PageTransition></ProtectedRoute>} />
             <Route path="/admin"     element={<ProtectedRoute><PageTransition><AdminPage /></PageTransition></ProtectedRoute>} />
+            <Route path="/breakdown" element={<ProtectedRoute><PageTransition><PremiumBreakdownPage /></PageTransition></ProtectedRoute>} />
             <Route path="*"          element={<Navigate to="/" />} />
           </Routes>
         </AnimatePresence>
