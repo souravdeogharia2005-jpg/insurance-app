@@ -877,43 +877,13 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
         try {
             console.log(`📸 Vision Scan: Processing ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
 
-            // 1. Get Google Access Token
-            const accessToken = await getGoogleAccessToken();
-
-            // 2. Call Google Vision document_text_detection
+            // 1. Convert image to base64
             const imageBase64 = req.file.buffer.toString('base64');
-            const visionRes = await fetch(
-                'https://vision.googleapis.com/v1/images:annotate',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        requests: [{
-                            image: { content: imageBase64 },
-                            features: [{ type: 'DOCUMENT_TEXT_DETECTION', maxResults: 1 }]
-                        }]
-                    })
-                }
-            );
+            const mimeType = req.file.mimetype || 'image/jpeg';
+            const dataUrl = `data:${mimeType};base64,${imageBase64}`;
 
-            const visionData = await visionRes.json();
-            if (visionData.error) throw new Error('Vision API error: ' + visionData.error.message);
-
-            const responses = visionData.responses || [];
-            const rawText = (responses[0]?.fullTextAnnotation?.text) || '';
-
-            if (!rawText.trim()) {
-                return res.json({ rawText: '', structured: null, message: 'No text detected. Please use a clearer image.' });
-            }
-
-            // 3. Parse structured fields from OCR text using Gemini for intelligence
-            let structured = null;
-            try {
-                const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-                const parsePrompt = `You are an insurance form data extractor. Given this OCR text from an insurance proposal form, extract the following fields into a JSON object. Return ONLY valid JSON, no markdown, no explanation.
+            // 2. Call Groq Vision API (llama-3.2-90b-vision-preview)
+            const parsePrompt = `You are an expert insurance form data extractor. Analyze the attached image of an insurance proposal form and extract the following fields into a precise JSON object. Do not include any markdown formatting, explanations, or extra text. Return ONLY raw JSON.
 
 Fields to extract:
 - name (string)
@@ -923,38 +893,69 @@ Fields to extract:
 - profession (string)
 - height_cm (number)
 - weight_kg (number)
-- yearly_income (number in rupees)
+- yearly_income (number)
 - source_of_income (string)
-- base_cover_required (number in rupees)
-- cir_cover_required (number in rupees)
-- accident_cover_required (number in rupees)
+- base_cover_required (number)
+- cir_cover_required (number)
+- accident_cover_required (number)
 - parent_status (string: "both_above_65" / "one_above_65" / "both_below_65" / "alive_healthy")
 - thyroid (number: 0=no, 1=mild, 2=moderate, 3=severe)
 - asthma (number: 0-3)
 - hypertension (number: 0-3)
 - diabetes_mellitus (number: 0-3)
 - gut_disorder (number: 0-3)
-- smoking (string: never/occasional/moderate/heavy)
-- alcoholic_drinks (string: never/occasional/moderate/heavy)
-- tobacco (string: never/occasional/moderate/heavy)
-- occupation_risk (string: normal/athlete/pilot/driver/merchant_navy/oil_gas)
+- smoking (number: 0=never, 1=occasional, 2=moderate, 3=heavy)
+- alcoholic_drinks (number: 0-3)
+- tobacco (number: 0-3)
+- occupation_risk (string: normal/athlete/pilot/driver/merchant_navy/oil_gas)`;
 
-OCR Text:
-${rawText.substring(0, 4000)}`;
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.2-90b-vision-preview',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: [
+                                { type: 'text', text: parsePrompt },
+                                { type: 'image_url', image_url: { url: dataUrl } }
+                            ]
+                        }
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 1024
+                })
+            });
 
-                const result = await ai.models.generateContent({ model: 'gemini-1.5-flash', contents: parsePrompt });
-                let jsonStr = result.text.trim();
-                jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                structured = JSON.parse(jsonStr);
-            } catch (parseErr) {
-                console.warn('⚠️ Structured parsing failed, returning raw text only:', parseErr.message);
+            const groqData = await groqRes.json();
+            if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq Vision API error');
+
+            const rawText = groqData.choices[0]?.message?.content || '';
+            
+            // Extract JSON safely from response
+            let structured = null;
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                try {
+                    structured = JSON.parse(jsonMatch[0]);
+                } catch (e) {
+                    console.warn('⚠️ Groq JSON parsing failed:', e.message);
+                }
             }
 
-            console.log(`✅ Vision Scan complete. Text length: ${rawText.length} chars`);
-            res.json({ rawText, structured, ocrEngine: 'google-vision' });
+            if (!structured) {
+                return res.json({ rawText: rawText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
+            }
+
+            console.log(`✅ Groq Vision Scan complete.`);
+            res.json({ rawText: JSON.stringify(structured, null, 2), structured, ocrEngine: 'groq-vision' });
 
         } catch (error) {
-            console.error('💥 Vision scan failed:', error.message);
+            console.error('💥 Groq Vision scan failed:', error.message);
             res.status(500).json({ error: 'Vision scan failed: ' + error.message });
         }
     });

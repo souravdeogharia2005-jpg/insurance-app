@@ -353,10 +353,10 @@ export default function ScanPage() {
                             <div className="w-24 h-24 bg-blue-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner text-blue-600 border border-blue-100">
                                 <Eye size={40} strokeWidth={2} />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Google Vision OCR</h3>
-                            <p className="text-slate-500 max-w-sm mx-auto mb-3 font-medium leading-relaxed">Upload any handwritten or printed insurance form. Google Vision extracts all text instantly.</p>
+                            <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Just Ai Scanner</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto mb-3 font-medium leading-relaxed">Upload any handwritten or printed insurance form. Just Ai Scanner extracts all text instantly.</p>
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-8">
-                                ✅ Powered by Google Cloud Vision API
+                                ✅ Powered by Just Ai Scanner
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                 <label htmlFor="vision-upload" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
@@ -389,10 +389,10 @@ export default function ScanPage() {
                                     </div>
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">
-                                    {status === 'vision_scanning' ? '🔍 Google Vision Scanning...' : status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
+                                    {status === 'vision_scanning' ? '🔍 Just Ai Scanning...' : status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
                                 </h3>
                                 <p className="text-sm text-slate-500 mb-8 font-medium">
-                                    {status === 'vision_scanning' ? `Extracting text via Google Vision API (${scanProgress}%)` : status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
+                                    {status === 'vision_scanning' ? `Extracting text via Just Ai Scanner (${scanProgress}%)` : status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
                                 </p>
                                 {(status === 'scanning' || status === 'vision_scanning') && (
                                     <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
@@ -410,7 +410,7 @@ export default function ScanPage() {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                             <div>
                                 <h2 className="text-3xl font-black text-slate-900 tracking-tight">OCR Result</h2>
-                                <p className="text-slate-500 text-sm mt-1 font-medium">Text extracted by Google Cloud Vision API</p>
+                                <p className="text-slate-500 text-sm mt-1 font-medium">Text extracted by Just Ai Scanner</p>
                             </div>
                             <div className="flex gap-3 flex-wrap">
                                 <button onClick={handleDownloadPDF} disabled={downloadingPDF || !visionRawText} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 shadow-lg shadow-blue-100">
