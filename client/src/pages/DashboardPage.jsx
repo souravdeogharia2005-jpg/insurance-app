@@ -4,6 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import { getAdminProposals } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
+import { getAdminProposals } from '../utils/api';
+import { useNavigate } from 'react-router-dom';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { AlertTriangle, Zap, TrendingUp, ShieldAlert } from 'lucide-react';
 import SplitText from '../components/SplitText';
 
 export default function DashboardPage() {
@@ -37,6 +43,11 @@ export default function DashboardPage() {
     const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9'];
 
     const filteredProposals = proposals.filter(p => filter === 'all' || p.status === filter);
+
+    // Generate Smart Alerts based on top EMR cases
+    const highRiskProposals = proposals.filter(p => (p.emrScore || 0) >= 150).sort((a,b) => b.emrScore - a.emrScore).slice(0, 3);
+    const smokingCases = proposals.filter(p => parseInt(p.smoking||0) >= 2);
+
     return (
         <div className="bg-[#F8FAFC] w-full">
             {/* Desktop Dashboard */}
@@ -131,6 +142,47 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         )}
+
+                        {/* ── Smart Alerts Panel ── */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="bg-red-500/5 px-6 py-4 border-b border-red-500/10 flex items-center justify-between">
+                                <h3 className="font-bold text-red-900 text-sm flex items-center gap-2">
+                                    <Zap size={16} className="text-red-500" /> 
+                                    AegisAI Smart Insights
+                                </h3>
+                                <span className="text-[10px] font-bold px-2 py-1 bg-red-100 text-red-600 rounded-md uppercase tracking-wider">Requires Attention</span>
+                            </div>
+                            <div className="p-6 divide-y divide-slate-100">
+                                {highRiskProposals.length > 0 ? (
+                                    highRiskProposals.map((p, i) => (
+                                        <div key={i} className="py-3 first:pt-0 last:pb-0 flex items-start gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mt-1 flex-shrink-0">
+                                                <AlertTriangle size={14} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-800 text-sm">Critical Risk Class Detected ({p.riskClass})</h4>
+                                                <p className="text-slate-500 text-xs mt-0.5">Proposal <span className="font-semibold text-slate-700">{p.id}</span> ({p.name}) has an exceptionally high EMR of {p.emrScore}. Manual underwriting review strongly recommended.</p>
+                                                <button onClick={() => navigate('/admin')} className="text-xs font-bold text-blue-600 mt-2 hover:underline">Review Case →</button>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-4 text-center text-sm text-slate-500">No critical risk alerts at this time.</div>
+                                )}
+                                
+                                {smokingCases.length > 0 && (
+                                    <div className="py-3 flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 mt-1 flex-shrink-0">
+                                            <TrendingUp size={14} />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-800 text-sm">Trend Alert: High Smoking Rates</h4>
+                                            <p className="text-slate-500 text-xs mt-0.5">Detected {smokingCases.length} recent applicants with heavy tobacco usage. Consider adjusting baseline rates for this demographic.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Info Banner for Edits */}
                         <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl flex items-start gap-4 shadow-sm">

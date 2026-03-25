@@ -1175,6 +1175,40 @@ Return ONLY valid JSON (no markdown, no extra text):
     }
 });
 
+// POST /api/chat — Multi-turn AI insurance advisor chat
+app.post('/api/chat', authenticateToken, async (req, res) => {
+    try {
+        const { message, history = [] } = req.body;
+        if (!message) return res.status(400).json({ error: 'Message is required' });
+
+        const systemPrompt = `You are AegisAI — a friendly, expert insurance advisor chatbot for an Indian insurance platform. You specialize in:
+- Life insurance, CIR (Critical Illness Rider), accident coverage
+- EMR (Extra Mortality Rating) scores and risk classes
+- Premium calculation factors (BMI, habits, family history, occupation risk)
+- Indian insurance market (LIC, HDFC Life, ICICI Prudential, SBI Life, Max Life)
+- Giving practical, personalised advice in simple language
+
+Rules:
+- Be warm, helpful, and concise (3-5 sentences max per reply unless asked for more detail)
+- Use ₹ for Indian Rupees
+- Use emojis sparingly but naturally
+- Always end with a helpful follow-up question or suggestion
+- Never say you are ChatGPT or a generic AI — you are AegisAI Advisor`;
+
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            ...history.slice(-10), // keep last 10 turns for context
+            { role: 'user', content: message },
+        ];
+
+        const reply = await callGroq(messages, 0.75);
+        res.json({ success: true, reply });
+    } catch (error) {
+        console.error('Groq chat error:', error.message);
+        res.status(500).json({ error: 'Chat failed: ' + error.message });
+    }
+});
+
 // --- Start Server ---
 app.listen(PORT, () => {
     console.log(`\n🚀 AegisAI Server v${SERVER_VERSION} listening on port ${PORT}`);

@@ -78,6 +78,10 @@ export default function PremiumBreakdownPage() {
     const [simAlcohol, setSimAlcohol] = useState(null);
     const [simPremium, setSimPremium] = useState(null);
 
+    // What-If Scenario state
+    const [activeScenario, setActiveScenario] = useState('none'); // none | quit_smoking | lose_weight | family_fix
+    const [scenarioSaving, setScenarioSaving] = useState(0);
+
     // Load proposal data from sessionStorage
     const [data, setData] = useState(null);
     const [calc, setCalc] = useState(null);
@@ -157,6 +161,19 @@ export default function PremiumBreakdownPage() {
     }
 
     useEffect(() => { runSim(); }, [simBmi, simSmoking, simAlcohol]);
+
+    // What-If Engine
+    useEffect(() => {
+        if (!data || !calc) return;
+        if (activeScenario === 'none') { setScenarioSaving(0); return; }
+        let simUser = { ...data };
+        if (activeScenario === 'quit_smoking') simUser.smoking = 0;
+        if (activeScenario === 'lose_weight') simUser.bmi = 24.5; // ideal
+        if (activeScenario === 'family_fix') simUser.parentStatus = 'both_above_65';
+        
+        const simC = calculateInsurance(simUser);
+        setScenarioSaving(calc.total - simC.total);
+    }, [activeScenario, data, calc]);
 
     if (!data || !calc) {
         return (
@@ -492,6 +509,57 @@ export default function PremiumBreakdownPage() {
                             )}
                         </div>
                     </div>
+                </motion.div>
+
+                {/* ── Section 4.5: What-If Scenario Engine ─────────────────── */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
+                    className="rounded-2xl border border-white/10 p-5"
+                    style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <Brain size={18} className="text-pink-400" />
+                        What-If Scenarios
+                    </h2>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {[
+                            { id: 'quit_smoking', label: '🚭 Quit Smoking', show: data.smoking > 0 },
+                            { id: 'lose_weight', label: '🥗 Reach Ideal BMI', show: (data.bmi > 26 || data.bmi < 18) },
+                            { id: 'family_fix', label: '👨‍👩‍👧 Parents > 65', show: data.parentStatus !== 'both_above_65' }
+                        ].filter(s => s.show).map(scen => (
+                            <button key={scen.id} onClick={() => setActiveScenario(scen.id)}
+                                className={`px-4 py-2 text-sm font-semibold rounded-xl border transition-all ${
+                                    activeScenario === scen.id 
+                                    ? 'bg-pink-500/20 border-pink-500/50 text-pink-300' 
+                                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                                }`}>
+                                {scen.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                        {activeScenario !== 'none' && (
+                            <motion.div key={activeScenario} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                                <div className="p-4 rounded-xl border" style={{ background: scenarioSaving > 0 ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.04)', borderColor: scenarioSaving > 0 ? '#22C55E44' : '#ffffff22' }}>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-slate-400 text-xs mb-1">If you do this, your new premium is:</p>
+                                            <p className="text-xl font-bold">₹{(calc.total - scenarioSaving).toLocaleString('en-IN')}</p>
+                                        </div>
+                                        {scenarioSaving > 0 ? (
+                                            <div className="text-right">
+                                                <p className="text-xs text-green-400 font-bold mb-1">You Save</p>
+                                                <p className="text-xl font-black text-green-400">₹{scenarioSaving.toLocaleString('en-IN')}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="text-right">
+                                                <p className="text-sm font-semibold text-slate-400">No premium impact</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </motion.div>
 
                 {/* ── Section 5: Premium Reduction Roadmap ─────────────────── */}

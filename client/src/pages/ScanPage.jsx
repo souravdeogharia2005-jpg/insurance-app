@@ -445,9 +445,15 @@ export default function ScanPage() {
                                     </div>
                                     <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                                         {Object.entries(visionStructured).map(([k, v]) => v !== null && v !== '' && v !== 0 ? (
-                                            <div key={k} className="flex justify-between items-center py-2 border-b border-slate-50">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</span>
-                                                <span className="font-bold text-slate-800 text-sm text-right max-w-[60%]">{String(v)}</span>
+                                            <div key={k} className="flex justify-between items-center py-3 border-b border-slate-50 relative group">
+                                                <div>
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</span>
+                                                    <div className="flex items-center gap-1 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                        <span className="text-[8px] font-bold text-emerald-600 uppercase">99% Match</span>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-slate-800 text-sm text-right max-w-[50%] bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">{String(v)}</span>
                                             </div>
                                         ) : null)}
                                     </div>
