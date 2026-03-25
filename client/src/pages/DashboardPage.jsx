@@ -4,11 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { getAdminProposals } from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { useApp } from '../context/AppContext';
-import { useAuth } from '../context/AuthContext';
-import { getAdminProposals } from '../utils/api';
-import { useNavigate } from 'react-router-dom';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { AlertTriangle, Zap, TrendingUp, ShieldAlert } from 'lucide-react';
 import SplitText from '../components/SplitText';
 
