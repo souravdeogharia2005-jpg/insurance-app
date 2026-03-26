@@ -867,7 +867,7 @@ async function getGoogleAccessToken() {
     if (!tokenData.access_token) throw new Error('Failed to get Google access token: ' + JSON.stringify(tokenData));
     return tokenData.access_token;
 }
-// POST /api/vision-scan — Google Vision OCR + structured data extraction
+// POST /api/vision-scan — Just AI Scanner using Gemini 1.5 Flash Vision
 app.post('/api/vision-scan', authenticateToken, async (req, res) => {
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
     upload.single('document')(req, res, async (err) => {
@@ -875,17 +875,14 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
 
         try {
-            console.log(`📸 Vision Scan: Processing ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
+            console.log(`📸 Just AI Scanner: Processing ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
 
-            // 1. Convert image to base64
             const imageBase64 = req.file.buffer.toString('base64');
             const mimeType = req.file.mimetype || 'image/jpeg';
-            const dataUrl = `data:${mimeType};base64,${imageBase64}`;
 
-            // 2. Call Groq Vision API (llama-3.2-90b-vision-preview)
-            const parsePrompt = `You are an expert insurance form data extractor. Analyze the attached image of an insurance proposal form and extract the following fields into a precise JSON object. Do not include any markdown formatting, explanations, or extra text. Return ONLY raw JSON.
+            const parsePrompt = `You are an expert insurance form data extractor. Analyze this image of an insurance proposal form and extract all visible fields. Return ONLY a raw JSON object with no markdown, no explanation, no code blocks.
 
-Fields to extract:
+Fields to extract (use null if not found):
 - name (string)
 - gender (string: male/female/other)
 - place_of_residence (string)
@@ -909,57 +906,43 @@ Fields to extract:
 - tobacco (number: 0-3)
 - occupation_risk (string: normal/athlete/pilot/driver/merchant_navy/oil_gas)`;
 
-            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.2-11b-vision-preview',
-                    messages: [
-                        {
-                            role: 'user',
-                            content: [
-                                { type: 'text', text: parsePrompt },
-                                { type: 'image_url', image_url: { url: dataUrl } }
-                            ]
-                        }
-                    ],
-                    temperature: 0.1,
-                    max_tokens: 1024
-                })
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const result = await ai.models.generateContent({
+                model: 'gemini-1.5-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: parsePrompt },
+                        { inlineData: { mimeType, data: imageBase64 } }
+                    ]
+                }]
             });
 
-            const groqData = await groqRes.json();
-            if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq Vision API error');
+            let rawText = result.text.trim();
+            rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-            const rawText = groqData.choices[0]?.message?.content || '';
-            
-            // Extract JSON safely from response
             let structured = null;
             const jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                try {
-                    structured = JSON.parse(jsonMatch[0]);
-                } catch (e) {
-                    console.warn('⚠️ Groq JSON parsing failed:', e.message);
-                }
+                try { structured = JSON.parse(jsonMatch[0]); }
+                catch (e) { console.warn('⚠️ JSON parse failed:', e.message); }
             }
 
             if (!structured) {
-                return res.json({ rawText: rawText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
+                return res.json({ rawText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
             }
 
-            console.log(`✅ Groq Vision Scan complete.`);
-            res.json({ rawText: JSON.stringify(structured, null, 2), structured, ocrEngine: 'groq-vision' });
+            console.log(`✅ Just AI Scanner complete.`);
+            res.json({ rawText: JSON.stringify(structured, null, 2), structured, ocrEngine: 'gemini-vision' });
 
         } catch (error) {
-            console.error('💥 Groq Vision scan failed:', error.message);
+            console.error('💥 Just AI Scanner failed:', error.message);
             res.status(500).json({ error: 'Vision scan failed: ' + error.message });
         }
     });
 });
+
+
 
 // POST /api/download-pdf — Generate and stream a PDF from OCR text
 app.post('/api/download-pdf', authenticateToken, async (req, res) => {
