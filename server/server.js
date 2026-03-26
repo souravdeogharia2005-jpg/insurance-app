@@ -867,7 +867,7 @@ async function getGoogleAccessToken() {
     if (!tokenData.access_token) throw new Error('Failed to get Google access token: ' + JSON.stringify(tokenData));
     return tokenData.access_token;
 }
-// POST /api/vision-scan — Just AI Scanner using Gemini 1.5 Flash Vision
+// POST /api/vision-scan — Just AI Scanner: Tesseract.js OCR + Groq text parsing (no vision API quota needed)
 app.post('/api/vision-scan', authenticateToken, async (req, res) => {
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
     upload.single('document')(req, res, async (err) => {
@@ -875,65 +875,37 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
 
         try {
-            console.log(`📸 Just AI Scanner: Processing ${req.file.originalname} (${(req.file.size / 1024).toFixed(1)} KB)`);
+            // Step 1: OCR with Tesseract.js (local, zero API quota)
+            const Tesseract = require('tesseract.js');
+            const { data: { text: rawOcrText } } = await Tesseract.recognize(
+                req.file.buffer, 'eng', { logger: () => {} }
+            );
 
-            const imageBase64 = req.file.buffer.toString('base64');
-            const mimeType = req.file.mimetype || 'image/jpeg';
+            if (!rawOcrText.trim()) {
+                return res.json({ rawText: '', structured: null, message: 'No text detected. Please use a clearer image.' });
+            }
+            console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing with Groq...`);
 
-            const parsePrompt = `You are an expert insurance form data extractor. Analyze this image of an insurance proposal form and extract all visible fields. Return ONLY a raw JSON object with no markdown, no explanation, no code blocks.
+            // Step 2: Parse fields with Groq text model (not vision, no quota issue)
+            const reply = await callGroq([
+                { role: 'system', content: 'You are an insurance form OCR data extractor. Return only valid raw JSON with no markdown.' },
+                { role: 'user', content: `Extract the following fields from this OCR text into a JSON object. Return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number), weight_kg (number), yearly_income (number), source_of_income, base_cover_required (number), cir_cover_required (number), accident_cover_required (number), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}` }
+            ], 0.1);
 
-Fields to extract (use null if not found):
-- name (string)
-- gender (string: male/female/other)
-- place_of_residence (string)
-- date_of_birth (string)
-- profession (string)
-- height_cm (number)
-- weight_kg (number)
-- yearly_income (number)
-- source_of_income (string)
-- base_cover_required (number)
-- cir_cover_required (number)
-- accident_cover_required (number)
-- parent_status (string: "both_above_65" / "one_above_65" / "both_below_65" / "alive_healthy")
-- thyroid (number: 0=no, 1=mild, 2=moderate, 3=severe)
-- asthma (number: 0-3)
-- hypertension (number: 0-3)
-- diabetes_mellitus (number: 0-3)
-- gut_disorder (number: 0-3)
-- smoking (number: 0=never, 1=occasional, 2=moderate, 3=heavy)
-- alcoholic_drinks (number: 0-3)
-- tobacco (number: 0-3)
-- occupation_risk (string: normal/athlete/pilot/driver/merchant_navy/oil_gas)`;
-
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            const result = await ai.models.generateContent({
-                model: 'gemini-2.0-flash-lite',
-                contents: [{
-                    role: 'user',
-                    parts: [
-                        { text: parsePrompt },
-                        { inlineData: { mimeType, data: imageBase64 } }
-                    ]
-                }]
-            });
-
-            let rawText = result.text.trim();
-            rawText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
+            let jsonStr = reply.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             let structured = null;
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 try { structured = JSON.parse(jsonMatch[0]); }
                 catch (e) { console.warn('⚠️ JSON parse failed:', e.message); }
             }
 
             if (!structured) {
-                return res.json({ rawText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
+                return res.json({ rawText: rawOcrText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
             }
 
             console.log(`✅ Just AI Scanner complete.`);
-            res.json({ rawText: JSON.stringify(structured, null, 2), structured, ocrEngine: 'gemini-vision' });
+            res.json({ rawText: rawOcrText, structured, ocrEngine: 'tesseract-groq' });
 
         } catch (error) {
             console.error('💥 Just AI Scanner failed:', error.message);
