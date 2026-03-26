@@ -886,13 +886,14 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
             }
             console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing with Groq...`);
 
-            // Step 2: Parse fields with Groq text model (not vision, no quota issue)
-            const reply = await callGroq([
-                { role: 'system', content: 'You are an insurance form OCR data extractor. Return only valid raw JSON with no markdown.' },
-                { role: 'user', content: `Extract the following fields from this OCR text into a JSON object. Return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number), weight_kg (number), yearly_income (number), source_of_income, base_cover_required (number), cir_cover_required (number), accident_cover_required (number), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}` }
-            ], 0.1);
+            // Step 2: Parse fields with Gemini text model (uses existing GEMINI_API_KEY, no vision quota used)
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const geminiResult = await ai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: `You are an insurance form OCR data extractor. Extract the following fields from this OCR text into a JSON object. Return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number), weight_kg (number), yearly_income (number), source_of_income, base_cover_required (number), cir_cover_required (number), accident_cover_required (number), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
+            });
 
-            let jsonStr = reply.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            let jsonStr = geminiResult.text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             let structured = null;
             const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
