@@ -56,6 +56,7 @@ export default function ScanPage() {
 
     const [status, setStatus] = useState('idle'); // idle | scanning | calculating | done | vision_scanning | vision_done
     const [scanProgress, setScanProgress] = useState(0);
+    const [scanStage, setScanStage] = useState(''); // preprocessing | ocr | parsing | done
     const [activeMode, setActiveMode] = useState('emr'); // 'emr' | 'vision'
     const [showTemplate, setShowTemplate] = useState(false);
 
@@ -176,20 +177,83 @@ export default function ScanPage() {
         }
     };
 
-    // ── Google Vision OCR flow ────────────────────────────────────────────────
+    // ── Client-side image preprocessing (grayscale → contrast → binarize) ——
+    const preprocessImage = (file) => new Promise((resolve) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Scale down large images for faster OCR
+                const MAX = 2000;
+                const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+                canvas.width  = img.width  * scale;
+                canvas.height = img.height * scale;
+                const ctx = canvas.getContext('2d');
+
+                // Draw original image
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // Step 1: Grayscale
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const d = imageData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                    d[i] = d[i+1] = d[i+2] = gray;
+                }
+
+                // Step 2: Contrast stretch (histogram style)
+                let min = 255, max = 0;
+                for (let i = 0; i < d.length; i += 4) { min = Math.min(min, d[i]); max = Math.max(max, d[i]); }
+                const range = max - min || 1;
+                for (let i = 0; i < d.length; i += 4) {
+                    const v = Math.round(((d[i] - min) / range) * 255);
+                    d[i] = d[i+1] = d[i+2] = v;
+                }
+
+                // Step 3: Adaptive binarize threshold (Otsu-like: mean-based)
+                let sum = 0;
+                const pixels = d.length / 4;
+                for (let i = 0; i < d.length; i += 4) sum += d[i];
+                const threshold = (sum / pixels) * 0.85; // slightly below mean for text clarity
+                for (let i = 0; i < d.length; i += 4) {
+                    const v = d[i] < threshold ? 0 : 255;
+                    d[i] = d[i+1] = d[i+2] = v;
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+                canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/png' })), 'image/png', 1.0);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // ── Just AI Scanner (Tesseract + Gemini) ————————————————————
     const handleVisionScan = async (file, inputElement) => {
         if (!file) return;
         setStatus('vision_scanning');
         setScanProgress(0);
-        
+        setScanStage('preprocessing');
+
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+        const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 min timeout
 
         try {
-            const progressInterval = setInterval(() => setScanProgress(p => p >= 90 ? 90 : p + 8), 500);
+            // Step 1: Preprocess image client-side
+            setScanProgress(10);
+            setScanStage('preprocessing');
+            const processedFile = await preprocessImage(file);
+            setScanProgress(25);
+
+            // Step 2: Upload preprocessed image for OCR
+            setScanStage('ocr');
             const token = localStorage.getItem('aegis-token');
             const formData = new FormData();
-            formData.append('document', file);
+            formData.append('document', processedFile);
+
+            // Simulate OCR progress
+            const progressInterval = setInterval(() => setScanProgress(p => p >= 80 ? 80 : p + 5), 600);
 
             const res = await fetch(`${API}/vision-scan`, {
                 method: 'POST',
@@ -199,21 +263,28 @@ export default function ScanPage() {
             });
             clearInterval(progressInterval);
             clearTimeout(timeoutId);
-            setScanProgress(100);
+
+            setScanStage('parsing');
+            setScanProgress(90);
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Vision scan failed');
 
+            setScanProgress(100);
+            setScanStage('done');
             setVisionRawText(data.rawText || '');
             setVisionStructured(data.structured || null);
             setStatus('vision_done');
         } catch (error) {
             clearTimeout(timeoutId);
             console.error('Vision scan failed:', error);
+            setScanStage('');
             if (error.name === 'AbortError') {
-                alert('Scan timed out. The server might be waking up or the image is too large.');
+                alert('Scan timed out. The server might be waking up — please try again in 30 seconds.');
+            } else if (error.message.includes('blurry') || error.message.includes('No text')) {
+                alert('No text detected. Please use a clearer, well-lit image.');
             } else {
-                alert(error.message || 'Vision scan failed. Please try a clearer image.');
+                alert(error.message || 'Scan failed. Please try a clearer image.');
             }
             setStatus('idle');
         } finally {
@@ -389,10 +460,20 @@ export default function ScanPage() {
                                     </div>
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900 mb-3 tracking-tight">
-                                    {status === 'vision_scanning' ? '🔍 Just Ai Scanning...' : status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
+                                    {status === 'vision_scanning'
+                                        ? scanStage === 'preprocessing' ? '🎨 Preprocessing Image...'
+                                        : scanStage === 'ocr'          ? '🔍 Just Ai Scanning...'
+                                        : scanStage === 'parsing'      ? '🧠 AI Parsing Fields...'
+                                        : '🔍 Just Ai Scanning...'
+                                        : status === 'scanning' ? t('analyzingHandwriting') : t('factoringRisk')}
                                 </h3>
                                 <p className="text-sm text-slate-500 mb-8 font-medium">
-                                    {status === 'vision_scanning' ? `Extracting text via Just Ai Scanner (${scanProgress}%)` : status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
+                                    {status === 'vision_scanning'
+                                        ? scanStage === 'preprocessing' ? `Enhancing image quality (grayscale → contrast → binarize)...`
+                                        : scanStage === 'ocr'          ? `Running local OCR engine (${scanProgress}%)`
+                                        : scanStage === 'parsing'      ? `AI extracting insurance fields...`
+                                        : `Extracting text via Just Ai Scanner (${scanProgress}%)`
+                                        : status === 'scanning' ? `${t('aiPoweredAnalysis')} (${scanProgress}%)` : `${t('factoringRisk')}...`}
                                 </p>
                                 {(status === 'scanning' || status === 'vision_scanning') && (
                                     <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/50">
