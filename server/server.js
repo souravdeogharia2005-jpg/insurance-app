@@ -8,7 +8,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { GoogleGenAI } = require('@google/genai');
+const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
+
 
 // Standard fetch support for all Node versions
 let nodeFetch;
@@ -287,17 +289,17 @@ app.post('/api/calculate', authenticateToken, (req, res) => {
 });
 
 // ==========================================
-// SCAN & OCR ROUTE (Google Gemini API)
+// SCAN & OCR ROUTE (Tesseract + Claude AI)
 // ==========================================
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.post('/api/scan', authenticateToken, upload.single('document'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No document file provided' });
 
-        console.log(`📷 Just AI Scanner (EMR): Processing ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
+        console.log(`📷 EMR Scanner: Processing ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
 
-        // Step 1: OCR with Tesseract.js — no vision API quota consumed
+        // Step 1: OCR with Tesseract.js — free, no quota
         const Tesseract = require('tesseract.js');
         const { data: { text: rawOcrText } } = await Tesseract.recognize(
             req.file.buffer, 'eng', { logger: () => {} }
@@ -306,13 +308,16 @@ app.post('/api/scan', authenticateToken, upload.single('document'), async (req, 
         if (!rawOcrText.trim()) {
             return res.status(400).json({ error: 'No text detected. Please use a clearer, well-lit image.' });
         }
-        console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing fields...`);
+        console.log(`📝 OCR complete (${rawOcrText.length} chars). Parsing with Claude...`);
 
-        // Step 2: Gemini text model parses OCR text into structured JSON
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: `You are an intelligent insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation.
+        // Step 2: Claude parses OCR text into structured JSON — reliable, no geo-quota issues
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        const message = await anthropic.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 1024,
+            messages: [{
+                role: 'user',
+                content: `You are an expert insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation, no code block.
 
 Schema:
 {
@@ -330,23 +335,28 @@ Schema:
   "occupation_risk": ""
 }
 
-Rules: Use null for blank fields. For health conditions use 0-3 severity. For personal habits use None/Occasionally/Moderate/Regular.
+Rules:
+- Use null for completely blank/unreadable fields
+- Health conditions: 0=none, 1=mild, 2=moderate, 3=severe
+- Personal habits: None / Occasionally / Moderate / Regular
+- If a value is unclear, use "unclear - needs review"
 
 OCR Text:
 ${rawOcrText.substring(0, 5000)}`
+            }]
         });
 
-        let jsonStr = response.text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('Could not parse structured data from image. Please try a clearer image.');
+        const rawReply = message.content[0].text.trim();
+        const jsonMatch = rawReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('Could not parse structured data. Please try a clearer image.');
 
         const extractedData = JSON.parse(jsonMatch[0]);
-        console.log('✅ EMR scan complete');
+        console.log('✅ EMR scan complete via Claude');
         res.json({ success: true, data: extractedData });
 
     } catch (error) {
-        console.error('Error scanning document:', error.message);
-        res.status(500).json({ error: error.message || 'Failed to process document with AI' });
+        console.error('❌ EMR scan error:', error.message);
+        res.status(500).json({ error: error.message || 'Failed to process document' });
     }
 });
 
@@ -858,14 +868,18 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
             }
             console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing with Groq...`);
 
-            // Step 2: Parse fields with Gemini text model (uses existing GEMINI_API_KEY, no vision quota used)
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-            const geminiResult = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: `You are an insurance form OCR data extractor. Extract the following fields from this OCR text into a JSON object. Return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number), weight_kg (number), yearly_income (number), source_of_income, base_cover_required (number), cir_cover_required (number), accident_cover_required (number), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
+            // Step 2: Claude parses OCR text into structured JSON
+            const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+            const message = await anthropic.messages.create({
+                model: 'claude-haiku-4-5',
+                max_tokens: 1024,
+                messages: [{
+                    role: 'user',
+                    content: `You are an expert insurance OCR data extractor. Extract fields from this OCR text and return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number or null), weight_kg (number or null), yearly_income (number or null), source_of_income, base_cover_required (number or null), cir_cover_required (number or null), accident_cover_required (number or null), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"/null), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nIf a value is unclear or missing, use null for numbers, "unclear" for strings, 0 for conditions/habits.\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
+                }]
             });
 
-            let jsonStr = geminiResult.text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            let jsonStr = message.content[0].text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             let structured = null;
             const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
