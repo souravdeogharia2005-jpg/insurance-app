@@ -8,7 +8,31 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { GoogleGenAI } = require('@google/genai');
+const FormData = require('form-data');
 require('dotenv').config();
+
+// ── OCR.space helper — fast cloud OCR, mobile-friendly ──────────────────────
+async function runOCRSpace(fileBuffer, filename, mimetype) {
+    const form = new FormData();
+    form.append('file', fileBuffer, { filename: filename || 'scan.jpg', contentType: mimetype || 'image/jpeg' });
+    form.append('apikey', process.env.OCR_SPACE_API_KEY || 'K81710101488957');
+    form.append('language', 'eng');
+    form.append('isOverlayRequired', 'false');
+    form.append('detectOrientation', 'true');
+    form.append('scale', 'true');
+    form.append('OCREngine', '2'); // Engine 2 = better for handwriting
+
+    const response = await fetch('https://api.ocr.space/parse/image', {
+        method: 'POST',
+        body: form,
+        headers: form.getHeaders()
+    });
+    const result = await response.json();
+    if (!result.ParsedResults || result.ParsedResults.length === 0) {
+        throw new Error(result.ErrorMessage?.[0] || 'OCR failed: no text detected');
+    }
+    return result.ParsedResults[0].ParsedText || '';
+}
 
 
 // Standard fetch support for all Node versions
@@ -298,16 +322,13 @@ app.post('/api/scan', authenticateToken, upload.single('document'), async (req, 
 
         console.log(`📷 EMR Scanner: Processing ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
 
-        // Step 1: OCR with Tesseract.js — free, no quota
-        const Tesseract = require('tesseract.js');
-        const { data: { text: rawOcrText } } = await Tesseract.recognize(
-            req.file.buffer, 'eng', { logger: () => {} }
-        );
+        // Step 1: OCR via OCR.space API — fast, mobile-friendly, no memory overhead
+        const rawOcrText = await runOCRSpace(req.file.buffer, req.file.originalname, req.file.mimetype);
 
         if (!rawOcrText.trim()) {
             return res.status(400).json({ error: 'No text detected. Please use a clearer, well-lit image.' });
         }
-        console.log(`📝 OCR complete (${rawOcrText.length} chars). Parsing with Claude...`);
+        console.log(`📝 OCR.space complete (${rawOcrText.length} chars). Parsing with Groq...`);
 
         // Step 2: Groq (free) parses OCR text into structured JSON
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -864,16 +885,13 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
 
         try {
-            // Step 1: OCR with Tesseract.js (local, zero API quota)
-            const Tesseract = require('tesseract.js');
-            const { data: { text: rawOcrText } } = await Tesseract.recognize(
-                req.file.buffer, 'eng', { logger: () => {} }
-            );
+            // Step 1: OCR via OCR.space API — fast, mobile-friendly
+            const rawOcrText = await runOCRSpace(req.file.buffer, req.file.originalname, req.file.mimetype);
 
             if (!rawOcrText.trim()) {
                 return res.json({ rawText: '', structured: null, message: 'No text detected. Please use a clearer image.' });
             }
-            console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing with Groq...`);
+            console.log(`📝 OCR.space extracted ${rawOcrText.length} chars, parsing with Groq...`);
 
             // Step 2: Groq (free) parses OCR text into structured JSON
             const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
