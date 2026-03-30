@@ -54,11 +54,22 @@ export default function ScanPage() {
     const visionInputRef = useRef(null);
     const visionCameraRef = useRef(null);
 
-    const [status, setStatus] = useState('idle'); // idle | scanning | calculating | done | vision_scanning | vision_done
+    const [status, setStatus] = useState('idle');
     const [scanProgress, setScanProgress] = useState(0);
-    const [scanStage, setScanStage] = useState(''); // preprocessing | ocr | parsing | done
-    const [activeMode, setActiveMode] = useState('emr'); // 'emr' | 'vision'
+    const [scanStage, setScanStage] = useState('');
+    const [activeMode, setActiveMode] = useState('emr');
     const [showTemplate, setShowTemplate] = useState(false);
+
+    // Full reset for "Scan Again"
+    const scanAgain = () => {
+        setStatus('idle');
+        setScanProgress(0);
+        setScanStage('');
+        setScannedData(null);
+        setCalcResult(null);
+        setVisionRawText('');
+        setVisionStructured(null);
+    };
 
     const [scannedData, setScannedData] = useState(null);
     const [calcResult, setCalcResult] = useState(null);
@@ -389,11 +400,13 @@ export default function ScanPage() {
                     )}
                 </AnimatePresence>
 
-                {/* ── Hidden File Inputs ────────────────────────────────────── */}
-                <input id="scan-upload" type="file" accept="image/*" hidden onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="scan-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="vision-upload" type="file" accept="image/*" hidden onChange={e => handleVisionScan(e.target.files[0], e.target)} />
-                <input id="vision-camera" type="file" accept="image/*" capture="environment" hidden onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                {/* ── Hidden File Inputs (sr-only for mobile compatibility) ── */}
+                {/* NOTE: Using sr-only style instead of 'hidden' attr — iOS Safari & Android
+                     Chrome require the input to be in the rendering tree to open file picker */}
+                <input id="scan-upload"   type="file" accept="image/*,application/pdf" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="scan-camera"   type="file" accept="image/*" capture="environment" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="vision-upload" type="file" accept="image/*,application/pdf" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                <input id="vision-camera" type="file" accept="image/*" capture="environment" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleVisionScan(e.target.files[0], e.target)} />
 
                 {/* ── Idle State ───────────────────────────────────────────── */}
                 {status === 'idle' && activeMode === 'emr' && (
@@ -497,8 +510,8 @@ export default function ScanPage() {
                                 <button onClick={handleDownloadPDF} disabled={downloadingPDF || !visionRawText} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-2xl font-bold text-sm hover:bg-blue-700 active:scale-95 transition disabled:opacity-50 shadow-lg shadow-blue-100">
                                     {downloadingPDF ? <Loader className="animate-spin" size={16} /> : <Download size={16} />} Download PDF
                                 </button>
-                                <button onClick={() => { setStatus('idle'); setVisionRawText(''); setVisionStructured(null); }} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 active:scale-95 transition">
-                                    Scan New Form
+                                <button onClick={scanAgain} className="flex items-center gap-2 px-5 py-2.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-2xl font-bold text-sm hover:bg-blue-100 active:scale-95 transition">
+                                    <ScanLine size={16} /> Scan Again
                                 </button>
                             </div>
                         </div>
@@ -555,13 +568,18 @@ export default function ScanPage() {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-4">
                             <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t('underwritingReport')}</h2>
                             {!isExporting && (
-                                <div className="flex gap-4 print:hidden">
+                                <div className="flex gap-3 flex-wrap print:hidden">
+                                    <button
+                                        onClick={scanAgain}
+                                        className="px-6 py-3 bg-blue-50 text-blue-700 border border-blue-100 rounded-2xl font-bold hover:bg-blue-100 active:scale-95 transition flex items-center gap-2"
+                                    >
+                                        <ScanLine size={18} /> Scan Again
+                                    </button>
                                     <button onClick={downloadProposalPDF} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 active:scale-95 transition flex items-center gap-2">
-                                        <Download size={18} /> {t('exportPDF', 'Download Official PDF')}
+                                        <Download size={18} /> {t('exportPDF', 'Download PDF')}
                                     </button>
                                     <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl shadow-2xl shadow-emerald-200 font-bold hover:bg-emerald-700 active:scale-95 transition flex items-center gap-2">
-                                        <CheckCircle size={18} />
-                                        Saved to Dashboard →
+                                        <CheckCircle size={18} /> Saved to Dashboard →
                                     </button>
                                 </div>
                             )}
@@ -692,8 +710,8 @@ export default function ScanPage() {
                                             <p className="font-black text-slate-900 text-lg">{scannedData.cir_cover_required || '—'}</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => setStatus('idle')} className="w-full mt-6 px-6 py-4 bg-slate-50 text-slate-500 font-black rounded-2xl transition hover:bg-slate-100 active:scale-95 text-xs uppercase tracking-widest print:hidden border border-slate-100">
-                                        {t('scanNewForm')}
+                                    <button onClick={scanAgain} className="w-full mt-6 px-6 py-4 bg-blue-50 text-blue-700 font-black rounded-2xl transition hover:bg-blue-100 active:scale-95 text-xs uppercase tracking-widest print:hidden border border-blue-100 flex items-center justify-center gap-2">
+                                        <ScanLine size={14} /> {t('scanNewForm', 'Scan Again')}
                                     </button>
                                 </div>
                             </div>
