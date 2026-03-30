@@ -190,53 +190,66 @@ export default function ScanPage() {
 
     // ── Client-side image preprocessing (grayscale → contrast → binarize) ——
     const preprocessImage = (file) => new Promise((resolve) => {
+        // Skip preprocessing for non-images (like PDFs) or HEIC (unsupported by canvas)
+        if (!file.type.startsWith('image/') || file.type.includes('heic') || file.type.includes('heif')) {
+            return resolve(file);
+        }
+
         const img = new Image();
         const reader = new FileReader();
+
         reader.onload = (e) => {
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // Scale down large images for faster OCR
-                const MAX = 2000;
-                const scale = Math.min(MAX / img.width, MAX / img.height, 1);
-                canvas.width  = img.width  * scale;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
+                try {
+                    const canvas = document.createElement('canvas');
+                    // Scale down large images for faster OCR and to prevent mobile memory crashes
+                    const MAX = 1500;
+                    const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+                    canvas.width  = img.width  * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext('2d');
 
-                // Draw original image
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    // Draw original image
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                // Step 1: Grayscale
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const d = imageData.data;
-                for (let i = 0; i < d.length; i += 4) {
-                    const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-                    d[i] = d[i+1] = d[i+2] = gray;
+                    // Step 1: Grayscale
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const d = imageData.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                        d[i] = d[i+1] = d[i+2] = gray;
+                    }
+
+                    // Step 2: Contrast stretch
+                    let min = 255, max = 0;
+                    for (let i = 0; i < d.length; i += 4) { min = Math.min(min, d[i]); max = Math.max(max, d[i]); }
+                    const range = max - min || 1;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const v = Math.round(((d[i] - min) / range) * 255);
+                        d[i] = d[i+1] = d[i+2] = v;
+                    }
+
+                    // Step 3: Adaptive binarize
+                    let sum = 0;
+                    const pixels = d.length / 4;
+                    for (let i = 0; i < d.length; i += 4) sum += d[i];
+                    const threshold = (sum / pixels) * 0.85;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const v = d[i] < threshold ? 0 : 255;
+                        d[i] = d[i+1] = d[i+2] = v;
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/png' })), 'image/png', 0.9);
+                } catch (err) {
+                    console.error("Preprocessing failed, using original:", err);
+                    resolve(file); // fallback
                 }
-
-                // Step 2: Contrast stretch (histogram style)
-                let min = 255, max = 0;
-                for (let i = 0; i < d.length; i += 4) { min = Math.min(min, d[i]); max = Math.max(max, d[i]); }
-                const range = max - min || 1;
-                for (let i = 0; i < d.length; i += 4) {
-                    const v = Math.round(((d[i] - min) / range) * 255);
-                    d[i] = d[i+1] = d[i+2] = v;
-                }
-
-                // Step 3: Adaptive binarize threshold (Otsu-like: mean-based)
-                let sum = 0;
-                const pixels = d.length / 4;
-                for (let i = 0; i < d.length; i += 4) sum += d[i];
-                const threshold = (sum / pixels) * 0.85; // slightly below mean for text clarity
-                for (let i = 0; i < d.length; i += 4) {
-                    const v = d[i] < threshold ? 0 : 255;
-                    d[i] = d[i+1] = d[i+2] = v;
-                }
-
-                ctx.putImageData(imageData, 0, 0);
-                canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: 'image/png' })), 'image/png', 1.0);
             };
+            img.onerror = () => resolve(file); // fallback if image can't be decoded
             img.src = e.target.result;
         };
+        reader.onerror = () => resolve(file); // fallback if file can't be read
         reader.readAsDataURL(file);
     });
 
