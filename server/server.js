@@ -8,7 +8,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { GoogleGenAI } = require('@google/genai');
-const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
 
@@ -310,14 +309,19 @@ app.post('/api/scan', authenticateToken, upload.single('document'), async (req, 
         }
         console.log(`📝 OCR complete (${rawOcrText.length} chars). Parsing with Claude...`);
 
-        // Step 2: Claude parses OCR text into structured JSON — reliable, no geo-quota issues
-        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-        const message = await anthropic.messages.create({
-            model: 'claude-haiku-4-5',
-            max_tokens: 1024,
-            messages: [{
-                role: 'user',
-                content: `You are an expert insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation, no code block.
+        // Step 2: Groq (free) parses OCR text into structured JSON
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.1-8b-instant',
+                max_tokens: 1024,
+                messages: [{
+                    role: 'user',
+                    content: `You are an expert insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation, no code block.
 
 Schema:
 {
@@ -336,22 +340,25 @@ Schema:
 }
 
 Rules:
-- Use null for completely blank/unreadable fields
+- Use null for blank/unreadable fields
 - Health conditions: 0=none, 1=mild, 2=moderate, 3=severe
 - Personal habits: None / Occasionally / Moderate / Regular
-- If a value is unclear, use "unclear - needs review"
+- If unclear, use "unclear"
 
 OCR Text:
 ${rawOcrText.substring(0, 5000)}`
-            }]
+                }]
+            })
         });
+        const groqData = await groqRes.json();
+        if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq parsing failed');
 
-        const rawReply = message.content[0].text.trim();
+        const rawReply = groqData.choices[0].message.content.trim();
         const jsonMatch = rawReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error('Could not parse structured data. Please try a clearer image.');
 
         const extractedData = JSON.parse(jsonMatch[0]);
-        console.log('✅ EMR scan complete via Claude');
+        console.log('✅ EMR scan complete via Groq');
         res.json({ success: true, data: extractedData });
 
     } catch (error) {
@@ -868,18 +875,26 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
             }
             console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing with Groq...`);
 
-            // Step 2: Claude parses OCR text into structured JSON
-            const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-            const message = await anthropic.messages.create({
-                model: 'claude-haiku-4-5',
-                max_tokens: 1024,
-                messages: [{
-                    role: 'user',
-                    content: `You are an expert insurance OCR data extractor. Extract fields from this OCR text and return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number or null), weight_kg (number or null), yearly_income (number or null), source_of_income, base_cover_required (number or null), cir_cover_required (number or null), accident_cover_required (number or null), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"/null), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nIf a value is unclear or missing, use null for numbers, "unclear" for strings, 0 for conditions/habits.\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
-                }]
+            // Step 2: Groq (free) parses OCR text into structured JSON
+            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.1-8b-instant',
+                    max_tokens: 1024,
+                    messages: [{
+                        role: 'user',
+                        content: `You are an expert insurance OCR data extractor. Extract fields from this OCR text and return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number or null), weight_kg (number or null), yearly_income (number or null), source_of_income, base_cover_required (number or null), cir_cover_required (number or null), accident_cover_required (number or null), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"/null), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas).\n\nIf unclear, use null for numbers, "unclear" for strings, 0 for conditions.\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
+                    }]
+                })
             });
+            const groqData = await groqRes.json();
+            if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq parsing failed');
 
-            let jsonStr = message.content[0].text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            let jsonStr = groqData.choices[0].message.content.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             let structured = null;
             const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
