@@ -311,7 +311,7 @@ app.post('/api/scan', authenticateToken, upload.single('document'), async (req, 
         // Step 2: Gemini text model parses OCR text into structured JSON
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: `You are an intelligent insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation.
 
 Schema:
@@ -861,7 +861,7 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
             // Step 2: Parse fields with Gemini text model (uses existing GEMINI_API_KEY, no vision quota used)
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
             const geminiResult = await ai.models.generateContent({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-1.5-flash',
                 contents: `You are an insurance form OCR data extractor. Extract the following fields from this OCR text into a JSON object. Return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number), weight_kg (number), yearly_income (number), source_of_income, base_cover_required (number), cir_cover_required (number), accident_cover_required (number), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas)\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
             });
 
