@@ -413,11 +413,11 @@ export default function ScanPage() {
                     )}
                 </AnimatePresence>
 
-                {/* ── Hidden File Inputs ── */}
-                <input id="scan-upload"   type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="scan-camera"   type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="vision-upload" type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleVisionScan(e.target.files[0], e.target)} />
-                <input id="vision-camera" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                {/* ── File Inputs (ref-based for 100% mobile compatibility) ── */}
+                <input ref={inputRef}       type="file" accept="image/*,application/pdf" style={{display:'none'}} onChange={e => { handleScanFile(e.target.files[0], e.target); }} />
+                <input ref={cameraRef}      type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e => { handleScanFile(e.target.files[0], e.target); }} />
+                <input ref={visionInputRef} type="file" accept="image/*,application/pdf" style={{display:'none'}} onChange={e => { handleVisionScan(e.target.files[0], e.target); }} />
+                <input ref={visionCameraRef} type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e => { handleVisionScan(e.target.files[0], e.target); }} />
 
                 {/* ── Idle State ───────────────────────────────────────────── */}
                 {status === 'idle' && activeMode === 'emr' && (
@@ -430,12 +430,12 @@ export default function ScanPage() {
                             <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">{t('autoEngineTitle')}</h3>
                             <p className="text-slate-500 max-w-sm mx-auto mb-10 font-medium leading-relaxed">{t('autoEngineDesc')}</p>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                <label htmlFor="scan-upload" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                <button type="button" onClick={() => inputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl shadow-slate-200 hover:scale-[1.02] active:scale-95 transition-all text-sm uppercase tracking-widest">
                                     <Upload size={18} /> {t('uploadImage')}
-                                </label>
-                                <label htmlFor="scan-camera" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm">
+                                </button>
+                                <button type="button" onClick={() => cameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 active:scale-95 transition-all text-sm">
                                     <Camera size={18} /> {t('useCamera')}
-                                </label>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -454,12 +454,12 @@ export default function ScanPage() {
                                 ✅ Powered by Just Ai Scanner
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                                <label htmlFor="vision-upload" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                <button type="button" onClick={() => visionInputRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
                                     <Upload size={18} /> Upload Image
-                                </label>
-                                <label htmlFor="vision-camera" className="cursor-pointer flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-bold hover:bg-blue-50 active:scale-95 transition-all text-sm">
+                                </button>
+                                <button type="button" onClick={() => visionCameraRef.current?.click()} className="flex items-center gap-2 justify-center px-8 py-4 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-bold hover:bg-blue-50 active:scale-95 transition-all text-sm">
                                     <Camera size={18} /> Use Camera
-                                </label>
+                                </button>
                             </div>
                         </div>
                     </div>

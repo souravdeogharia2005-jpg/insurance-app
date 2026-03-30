@@ -293,91 +293,60 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 app.post('/api/scan', authenticateToken, upload.single('document'), async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No document file provided' });
-        }
+        if (!req.file) return res.status(400).json({ error: 'No document file provided' });
 
-        if (!process.env.GEMINI_API_KEY) {
-            console.error('❌ GEMINI_API_KEY is not defined in environment');
-            return res.status(500).json({ error: 'Scanner API key is not configured' });
-        }
+        console.log(`📷 Just AI Scanner (EMR): Processing ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
 
+        // Step 1: OCR with Tesseract.js — no vision API quota consumed
+        const Tesseract = require('tesseract.js');
+        const { data: { text: rawOcrText } } = await Tesseract.recognize(
+            req.file.buffer, 'eng', { logger: () => {} }
+        );
+
+        if (!rawOcrText.trim()) {
+            return res.status(400).json({ error: 'No text detected. Please use a clearer, well-lit image.' });
+        }
+        console.log(`📝 OCR extracted ${rawOcrText.length} chars, parsing fields...`);
+
+        // Step 2: Gemini text model parses OCR text into structured JSON
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const imageBase64 = req.file.buffer.toString('base64');
-        const mimeType = req.file.mimetype;
-
-        const prompt = `You are an intelligent document extraction system processing a handwritten insurance proposal form. 
-Analyze the provided image and extract the data into a strict JSON format.
-
-Rules:
-1. Return ONLY valid JSON. No markdown formatting, no conversational text.
-2. For text fields (Name, Gender, etc.), transcribe the handwriting exactly.
-3. For the "Health Conditions" table, look for tick marks. The number corresponds to the severity level column (1, 2, 3, or 4). If a row has no tick, output 0.
-4. For "Personal Habits", extract the column header where the tick mark is placed (e.g., "Occasionally", "Regular (high dose)"). If empty, output "None".
-5. If a field is entirely blank, output null.
-
-Use this exact JSON schema:
-{
-  "basic_details": {
-    "name": "",
-    "gender": "",
-    "date_of_birth": "",
-    "profession": "",
-    "yearly_income": "",
-    "base_cover_required": "",
-    "cir_cover_required": "",
-    "accident_cover_required": "",
-    "height_cm": null,
-    "weight_kg": null,
-    "place_of_residence": ""
-  },
-  "family_history": {
-    "parent_status": ""
-  },
-  "health_conditions": {
-    "thyroid": 0,
-    "asthma": 0,
-    "hyper_tension": 0,
-    "diabetes_mellitus": 0,
-    "gut_disorder": 0
-  },
-  "personal_habits": {
-    "smoking": "",
-    "alcoholic_drinks": "",
-    "tobacco": ""
-  },
-  "occupation_risk": ""
-}`;
-
-        console.log(`📷 Sending document to Gemini Vision API... (${Math.round(req.file.size/1024)}KB)`);
-        
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: prompt },
-                    { 
-                        inlineData: {
-                            data: imageBase64,
-                            mimeType: mimeType 
-                        }
-                    }
-                ]
-            }],
-            config: {
-                responseMimeType: "application/json", 
-            }
+            contents: `You are an intelligent insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation.
+
+Schema:
+{
+  "basic_details": {
+    "name": "", "gender": "", "date_of_birth": "", "profession": "",
+    "yearly_income": "", "base_cover_required": "", "cir_cover_required": "",
+    "accident_cover_required": "", "height_cm": null, "weight_kg": null,
+    "place_of_residence": "", "source_of_income": ""
+  },
+  "family_history": { "parent_status": "" },
+  "health_conditions": {
+    "thyroid": 0, "asthma": 0, "hyper_tension": 0, "diabetes_mellitus": 0, "gut_disorder": 0
+  },
+  "personal_habits": { "smoking": "", "alcoholic_drinks": "", "tobacco": "" },
+  "occupation_risk": ""
+}
+
+Rules: Use null for blank fields. For health conditions use 0-3 severity. For personal habits use None/Occasionally/Moderate/Regular.
+
+OCR Text:
+${rawOcrText.substring(0, 5000)}`
         });
 
-        const extractedData = JSON.parse(response.text);
-        console.log("✅ Form successfully scanned by Gemini:", typeof extractedData === 'object' ? 'Parsed OK' : 'Parse Failed');
-        
+        let jsonStr = response.text.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('Could not parse structured data from image. Please try a clearer image.');
+
+        const extractedData = JSON.parse(jsonMatch[0]);
+        console.log('✅ EMR scan complete');
         res.json({ success: true, data: extractedData });
 
     } catch (error) {
-        console.error("Error scanning document:", error);
-        res.status(500).json({ error: 'Failed to process document with AI' });
+        console.error('Error scanning document:', error.message);
+        res.status(500).json({ error: error.message || 'Failed to process document with AI' });
     }
 });
 
