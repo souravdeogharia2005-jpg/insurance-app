@@ -413,13 +413,11 @@ export default function ScanPage() {
                     )}
                 </AnimatePresence>
 
-                {/* ── Hidden File Inputs (sr-only for mobile compatibility) ── */}
-                {/* NOTE: Using sr-only style instead of 'hidden' attr — iOS Safari & Android
-                     Chrome require the input to be in the rendering tree to open file picker */}
-                <input id="scan-upload"   type="file" accept="image/*,application/pdf" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="scan-camera"   type="file" accept="image/*" capture="environment" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleScanFile(e.target.files[0], e.target)} />
-                <input id="vision-upload" type="file" accept="image/*,application/pdf" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleVisionScan(e.target.files[0], e.target)} />
-                <input id="vision-camera" type="file" accept="image/*" capture="environment" style={{position:'absolute',width:'1px',height:'1px',opacity:0,overflow:'hidden'}} onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                {/* ── Hidden File Inputs ── */}
+                <input id="scan-upload"   type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="scan-camera"   type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleScanFile(e.target.files[0], e.target)} />
+                <input id="vision-upload" type="file" accept="image/*,application/pdf" className="hidden" onChange={e => handleVisionScan(e.target.files[0], e.target)} />
+                <input id="vision-camera" type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleVisionScan(e.target.files[0], e.target)} />
 
                 {/* ── Idle State ───────────────────────────────────────────── */}
                 {status === 'idle' && activeMode === 'emr' && (
