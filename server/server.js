@@ -352,16 +352,19 @@ Use this exact JSON schema:
         console.log(`📷 Sending document to Gemini Vision API... (${Math.round(req.file.size/1024)}KB)`);
         
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [
-                prompt,
-                {
-                    inlineData: {
-                        data: imageBase64,
-                        mimeType: mimeType 
+            model: 'gemini-2.0-flash',
+            contents: [{
+                role: 'user',
+                parts: [
+                    { text: prompt },
+                    { 
+                        inlineData: {
+                            data: imageBase64,
+                            mimeType: mimeType 
+                        }
                     }
-                }
-            ],
+                ]
+            }],
             config: {
                 responseMimeType: "application/json", 
             }
