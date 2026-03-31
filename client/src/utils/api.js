@@ -214,7 +214,7 @@ export async function scanDocument(file) {
         
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to scan document');
-        return data.data; // The extracted JSON
+        return data; // Return full unified payload (extracted_fields, emr_score, premium)
     } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') throw new Error('Scan timed out. The server might be waking up or image is too large.');

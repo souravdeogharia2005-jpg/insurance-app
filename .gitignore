@@ -5,3 +5,11 @@ client/dist/
 server/node_modules/
 client/node_modules/
 server/vision-key.json
+
+# Python
+flask_scanner/venv/
+flask_scanner/__pycache__/
+flask_scanner/*.pyc
+# EasyOCR downloaded model cache (auto-downloaded on server start)
+/root/.EasyOCR/
+~/.EasyOCR/

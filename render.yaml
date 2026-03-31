@@ -1,0 +1,27 @@
+services:
+  # ── Python Flask OCR Scanner ──────────────────────────────────────────────
+  - type: web
+    name: aegisai-flask-scanner
+    runtime: python
+    rootDir: flask_scanner
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+    plan: starter          # Free tier — upgrade to Standard for persistent model cache
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9      # Pinned — EasyOCR/PyTorch not yet compatible with 3.14
+
+  # ── Node.js Express Backend ──────────────────────────────────────────────
+  - type: web
+    name: aegisai-node-backend
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: starter
+    envVars:
+      - key: FLASK_SCANNER_URL
+        fromService:
+          type: web
+          name: aegisai-flask-scanner
+          property: host          # Render auto-injects the Flask service's URL

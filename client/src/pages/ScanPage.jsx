@@ -96,64 +96,73 @@ export default function ScanPage() {
         }, 150);
     };
 
-    // ── Shared EMR Processing & Auto-save ──────────────────────────────────────
-    const processAndSaveEMR = async (extractedData) => {
-        const bd = extractedData.basic_details || extractedData || {};
-        const fh = extractedData.family_history || extractedData || {};
-        const ph = extractedData.personal_habits || extractedData || {};
-        const hc = extractedData.health_conditions || extractedData || {};
+    // ── Shared EMR Processing & Auto-save (Using Unified Python Payload) ──────────────────────────────────────
+    const processAndSaveEMR = async (pythonData) => {
+        const fields = pythonData.extracted_fields || {};
+        const premiumData = pythonData.premium || {};
 
-        const mapHabit = (val) => {
-            const v = (val || '').toLowerCase();
-            if (v.includes('occasion')) return 1;
-            if (v.includes('moderate')) return 2;
-            if (v.includes('heavy') || v.includes('high')) return 3;
-            return 0;
-        };
-        const parseNum = (v) => parseFloat(String(v || '').replace(/[^0-9.]/g, '')) || 0;
-        const height = parseNum(bd.height_cm);
-        const weight = parseNum(bd.weight_kg);
-        const bmiNumber = height > 0 ? (weight / Math.pow(height / 100, 2)) : 0;
-
-        let parentStatusStr = "alive_healthy";
-        const pStr = (fh.parent_status || '').toLowerCase();
-        if (pStr.includes('both surviving') || pStr.includes('alive')) parentStatusStr = "both_above_65";
-        else if (pStr.includes('only one') || pStr.includes('after')) parentStatusStr = "one_above_65";
-        else if (pStr.includes('both died') || pStr.includes('before')) parentStatusStr = "both_below_65";
-
-        let calcAge = 30;
-        if (bd.date_of_birth) {
-            const yearMatch = bd.date_of_birth.match(/\d{4}/);
-            if (yearMatch) calcAge = new Date().getFullYear() - parseInt(yearMatch[0]);
-        }
-
-        const userForCalc = {
-            age: calcAge, bmi: bmiNumber, family: parentStatusStr,
-            diseases: {
-                thyroid: parseNum(hc.thyroid), asthma: parseNum(hc.asthma),
-                hypertension: parseNum(hc.hyper_tension), diabetes: parseNum(hc.diabetes_mellitus),
-                gut: parseNum(hc.gut_disorder)
-            },
-            habits: { smoking: mapHabit(ph.smoking), alcohol: mapHabit(ph.alcoholic_drinks), tobacco: mapHabit(ph.tobacco) },
-            lifeCover: parseNum(bd.base_cover_required), cirCover: parseNum(bd.cir_cover_required), accidentCover: parseNum(bd.accident_cover_required),
-            occupation: (bd.profession || '').toLowerCase()
+        // Map python's extracted fields to the structure expected by the UI for backwards compatibility
+        const mappedBasicDetails = {
+            name: fields.name || '',
+            gender: fields.gender || '',
+            date_of_birth: fields.dob || '',
+            profession: fields.profession || '',
+            yearly_income: fields.yearly_income || '',
+            base_cover_required: fields.base_cover || '',
+            cir_cover_required: fields.cir_cover || '',
+            accident_cover_required: fields.accident_cover || '',
+            height_cm: fields.height_cm || '',
+            weight_kg: fields.weight_kg || '',
+            place_of_residence: '' // Not extracted by new python, fallback empty
         };
 
-        const finalCalc = await calculateInsuranceAPI(userForCalc);
-        setScannedData({ ...bd });
+        const finalCalc = {
+            emr: pythonData.emr_score || 0,
+            breakdown: pythonData.emr_breakdown || [],
+            lifeClass: premiumData.life_class || 'X',
+            lifeFactor: premiumData.life_factor || 20,
+            cirClass: premiumData.cir_class || 'X',
+            cirFactor: premiumData.cir_factor || 4,
+            healthClass: premiumData.cir_class || 'X', // Used in UI
+            healthFactor: premiumData.cir_factor || 4,
+            lifePremium: premiumData.life_premium_rs || 0,
+            cirPremium: premiumData.cir_premium_rs || 0,
+            accPremium: premiumData.accident_premium_rs || 0,
+            total: premiumData.total_premium_rs || 0,
+            color: (pythonData.emr_score <= 120) ? 'green' : (pythonData.emr_score <= 275) ? 'orange' : 'red',
+            bmi: pythonData.bmi || 0,
+            coverWarning: premiumData.cover_warning
+        };
+
+        setScannedData({ ...mappedBasicDetails });
         setCalcResult(finalCalc);
 
         // Auto-save the proposal to DB
         try {
             await createProposal({
-                name: bd.name || 'Unknown User', age: calcAge,
-                gender: bd.gender || 'male', dob: bd.date_of_birth || '',
-                income: parseNum(bd.yearly_income) || 0, profession: bd.profession || '',
-                residence: bd.place_of_residence || '', height: height,
-                weight: weight, bmi: finalCalc.bmi || bmiNumber,
-                emrScore: finalCalc.emr, emrBreakdown: finalCalc.breakdown || {}, riskClass: 'Class ' + finalCalc.lifeClass,
-                premium: { life: finalCalc.lifePremium, cir: finalCalc.cirPremium, accident: finalCalc.accPremium, total: finalCalc.total, lifeFactor: finalCalc.lifeFactor, healthFactor: finalCalc.healthFactor },
-                status: 'pending', source: 'scan'
+                name: fields.name || 'Unknown User', 
+                age: premiumData.age || 30,
+                gender: fields.gender || 'male', 
+                dob: fields.dob || '',
+                income: fields.yearly_income || 0, 
+                profession: fields.profession || '',
+                residence: mappedBasicDetails.place_of_residence, 
+                height: fields.height_cm || 0,
+                weight: fields.weight_kg || 0, 
+                bmi: pythonData.bmi || 0,
+                emrScore: finalCalc.emr, 
+                emrBreakdown: finalCalc.breakdown, 
+                riskClass: 'Class ' + finalCalc.lifeClass,
+                premium: { 
+                    life: finalCalc.lifePremium, 
+                    cir: finalCalc.cirPremium, 
+                    accident: finalCalc.accPremium, 
+                    total: finalCalc.total, 
+                    lifeFactor: finalCalc.lifeFactor, 
+                    healthFactor: finalCalc.healthFactor 
+                },
+                status: 'pending', 
+                source: 'scan'
             });
             console.log("Proposal Auto-Saved!");
         } catch (err) {

@@ -9,29 +9,37 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { GoogleGenAI } = require('@google/genai');
 const FormData = require('form-data');
+const Tesseract = require('tesseract.js');
 require('dotenv').config();
 
-// ── OCR.space helper — fast cloud OCR, mobile-friendly ──────────────────────
+// ── Tesseract.js helper — 100% Local, Offline OCR ──────────────────────
 async function runOCRSpace(fileBuffer, filename, mimetype) {
-    const form = new FormData();
-    form.append('file', fileBuffer, { filename: filename || 'scan.jpg', contentType: mimetype || 'image/jpeg' });
-    form.append('apikey', process.env.OCR_SPACE_API_KEY || 'K81710101488957');
-    form.append('language', 'eng');
-    form.append('isOverlayRequired', 'false');
-    form.append('detectOrientation', 'true');
-    form.append('scale', 'true');
-    form.append('OCREngine', '2'); // Engine 2 = better for handwriting
+    try {
+        console.log(`🔍 [OCR] Starting Local Tesseract processing on ${filename}...`);
+        
+        // Tesseract.js runs natively inside Node.js, no API keys needed!
+        const result = await Tesseract.recognize(
+            fileBuffer,
+            'eng',
+            { 
+                logger: m => {
+                    if (m.status === 'recognizing text' && m.progress % 0.25 < 0.05) {
+                        console.log(`   ⏳ OCR Progress: ${Math.round(m.progress * 100)}%`);
+                    }
+                }
+            }
+        );
 
-    const response = await fetch('https://api.ocr.space/parse/image', {
-        method: 'POST',
-        body: form,
-        headers: form.getHeaders()
-    });
-    const result = await response.json();
-    if (!result.ParsedResults || result.ParsedResults.length === 0) {
-        throw new Error(result.ErrorMessage?.[0] || 'OCR failed: no text detected');
+        if (!result.data || !result.data.text.trim()) {
+            throw new Error('OCR failed: no text detected by Tesseract');
+        }
+        
+        console.log(`✅ [OCR] Local scan complete: ${result.data.text.length} characters found.`);
+        return result.data.text;
+    } catch (err) {
+        console.error("Tesseract Engine Error:", err);
+        throw new Error("Local OCR Engine failed: " + err.message);
     }
-    return result.ParsedResults[0].ParsedText || '';
 }
 
 
@@ -312,78 +320,235 @@ app.post('/api/calculate', authenticateToken, (req, res) => {
 });
 
 // ==========================================
-// SCAN & OCR ROUTE (Tesseract + Claude AI)
+// 🧠 NATIVE JS UNDERWRITING ENGINE (Ported from Python)
 // ==========================================
+function parseFields(ocrText) {
+    const text = ocrText.toLowerCase();
+    const lines = text.split('\n');
+    const fields = {
+        name: null, gender: null, dob: null, profession: null,
+        height_cm: null, weight_kg: null, yearly_income: null,
+        base_cover: null, cir_cover: null, accident_cover: null,
+        family_history: null, health_conditions: {}, habits: {},
+        occupation_extra: 0, unclear_fields: []
+    };
+
+    const search = (regex, processor = (v) => v) => {
+        const match = text.match(regex);
+        return match ? processor(match[1]) : null;
+    };
+
+    // Name extraction
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes('name')) {
+            let nameVal = lines[i].replace(/name\s*[:\|]?\s*/gi, '').trim();
+            if (!nameVal && i + 1 < lines.length) nameVal = lines[i + 1].trim();
+            if (nameVal && nameVal.length > 1) { fields.name = nameVal; break; }
+        }
+    }
+
+    if (text.includes('female')) fields.gender = 'Female';
+    else if (text.includes('male')) fields.gender = 'Male';
+
+    const dobMatch = ocrText.match(/\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})\b/);
+    if (dobMatch) fields.dob = dobMatch[1];
+
+    fields.height_cm = search(/height[^\d]*(\d{2,3})/, parseInt);
+    fields.weight_kg = search(/weight[^\d]*(\d{2,3})/, parseInt);
+    fields.yearly_income = search(/(?:yearly income|annual income|income)[^\d]*(\d[\d,\.]+)/, v => parseFloat(v.replace(/,/g, '')));
+    fields.base_cover = search(/base cover[^\d]*(\d[\d,\.]+)/, v => parseFloat(v.replace(/,/g, '')));
+    fields.cir_cover = search(/cir[^\d]*(\d[\d,\.]+)/, v => parseFloat(v.replace(/,/g, '')));
+    fields.accident_cover = search(/accident[^\d]*(\d[\d,\.]+)/, v => parseFloat(v.replace(/,/g, '')));
+    fields.profession = search(/profession[:\s]+([A-Za-z ]+)/i, v => v.trim());
+
+    if (text.includes('both') && text.includes('65')) {
+        fields.family_history = (text.includes('one') || text.includes('only')) ? 'one_surviving_above_65' : 'both_surviving_above_65';
+    } else if (text.includes('died') && text.includes('65')) {
+        fields.family_history = 'both_died_below_65';
+    }
+
+    const conditionMap = {
+        'thyroid': 'thyroid', 'asthma': 'asthma', 'hyper tension': 'hypertension',
+        'hypertension': 'hypertension', 'diabetes mellitus': 'diabetes', 'diabetes': 'diabetes',
+        'gut disorder': 'gut', 'gut': 'gut'
+    };
+    for (const [cond, key] of Object.entries(conditionMap)) {
+        if (text.includes(cond)) {
+            const idx = text.indexOf(cond);
+            const surrounding = text.substring(idx, idx + 100);
+            let sev = null;
+            for (let lvl of ['4', '3', '2', '1']) {
+                if (surrounding.includes(`level ${lvl}`) || surrounding.includes(`severity ${lvl}`) || surrounding.includes(` ${lvl}`)) { sev = parseInt(lvl); break; }
+            }
+            if (!sev && (surrounding.includes('✓') || surrounding.includes('x') || surrounding.includes('√'))) sev = 1;
+            if (sev) fields.health_conditions[key] = sev;
+        }
+    }
+
+    for (const habit of ['smoking', 'alcoholic', 'tobacco']) {
+        if (text.includes(habit)) {
+            const surrounding = text.substring(text.indexOf(habit), text.indexOf(habit) + 100);
+            if (surrounding.includes('high')) fields.habits[habit] = 'high';
+            else if (surrounding.includes('moderate') || surrounding.includes('regular')) fields.habits[habit] = 'moderate';
+            else if (surrounding.includes('occasional')) fields.habits[habit] = 'occasional';
+        }
+    }
+
+    const occKeywords = { 'athlete': 2, 'boxer': 2, 'wrestler': 2, 'driver': 2, 'public carrier': 2, 'pilot': 6, 'air crew': 6, 'airline': 6, 'merchant navy': 3, 'merchant': 3, 'oil': 3, 'natural gas': 3 };
+    for (const [kw, charge] of Object.entries(occKeywords)) {
+        if (text.includes(kw)) { fields.occupation_extra = charge; break; }
+    }
+
+    return fields;
+}
+
+function calculateEMR(fields) {
+    let emr = 0, breakdown = [], bmi = null;
+    const { height_cm: h, weight_kg: w } = fields;
+
+    if (h && w && h > 0) {
+        bmi = w / Math.pow(h / 100, 2);
+        if (bmi < 18) { emr += 10; breakdown.push(`BMI ${bmi.toFixed(1)} (underweight): +10`); }
+        else if (bmi <= 23) { breakdown.push(`BMI ${bmi.toFixed(1)} (normal): +0`); }
+        else if (bmi <= 28) { emr += 5; breakdown.push(`BMI ${bmi.toFixed(1)} (overweight): +5`); }
+        else if (bmi <= 33) { emr += 10; breakdown.push(`BMI ${bmi.toFixed(1)} (obese I): +10`); }
+        else { emr += 15; breakdown.push(`BMI ${bmi.toFixed(1)} (obese II+): +15`); }
+    }
+
+    const fh = fields.family_history;
+    if (fh === 'both_surviving_above_65') { emr -= 10; breakdown.push("Family history (both >65): -10"); }
+    else if (fh === 'one_surviving_above_65') { emr -= 5; breakdown.push("Family history (one >65): -5"); }
+    else if (fh === 'both_died_below_65') { emr += 10; breakdown.push("Family history (both <65): +10"); }
+
+    const conditionPoints = {
+        'thyroid': { 1: 2.5, 2: 5, 3: 7.5, 4: 10 },
+        'asthma': { 1: 5, 2: 7.5, 3: 10, 4: 12.5 },
+        'hypertension': { 1: 5, 2: 7.5, 3: 10, 4: 15 },
+        'diabetes': { 1: 10, 2: 15, 3: 20, 4: 25 },
+        'gut': { 1: 5, 2: 10, 3: 15, 4: 20 }
+    };
+
+    let activeConditions = 0;
+    for (const [cond, sev] of Object.entries(fields.health_conditions)) {
+        if (conditionPoints[cond] && conditionPoints[cond][sev]) {
+            const pts = conditionPoints[cond][sev];
+            emr += pts; activeConditions++;
+            breakdown.push(`${cond.charAt(0).toUpperCase() + cond.slice(1)} severity ${sev}: +${pts}`);
+        }
+    }
+    if (activeConditions === 2) { emr += 20; breakdown.push("Co-morbidity (2 diseases): +20"); }
+    else if (activeConditions >= 3) { emr += 40; breakdown.push("Co-morbidity (3+ diseases): +40"); }
+
+    const habitPoints = { 'occasional': 5, 'moderate': 10, 'high': 15 };
+    let activeHabits = 0;
+    for (const [habit, lvl] of Object.entries(fields.habits)) {
+        if (habitPoints[lvl]) {
+            const pts = habitPoints[lvl];
+            emr += pts; activeHabits++;
+            breakdown.push(`${habit.charAt(0).toUpperCase() + habit.slice(1)} (${lvl}): +${pts}`);
+        }
+    }
+    if (activeHabits === 2) { emr += 20; breakdown.push("Co-existing habits (2): +20"); }
+    else if (activeHabits >= 3) { emr += 40; breakdown.push("Co-existing habits (3): +40"); }
+
+    return { emr, breakdown, bmi };
+}
+
+function calculatePremiumEngine(fields, emr) {
+    let age = null;
+    if (fields.dob) {
+        const parts = fields.dob.split(/[\/\-\.]/);
+        if (parts.length === 3) {
+            let [d, m, y] = parts.map(Number);
+            if (y < 100) y += 2000;
+            const today = new Date();
+            age = today.getFullYear() - y - ((today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) ? 1 : 0);
+        }
+    }
+    if (!age) age = 30; // Fallback
+
+    const getRate = (a, table) => table.find(t => a <= t[0])?.[1] || null;
+    const lifeRate = getRate(age, [[35, 1.5], [40, 3.0], [45, 4.5], [50, 6.0], [55, 7.5], [60, 9.0], [65, 10.5]]);
+    const accRate = getRate(age, [[50, 1.0], [65, 1.5]]);
+    const cirRate = getRate(age, [[35, 3.0], [40, 6.0], [45, 12.0], [50, 15.0], [55, 20.0], [60, 25.0]]);
+
+    const getLifeFactor = (e) => [[35, 'I', 1], [60, 'II', 2], [85, 'III', 3], [120, 'IV', 4], [170, 'V', 6], [225, 'VI', 8], [275, 'VII', 10], [350, 'VIII', 12], [450, 'IX', 16], [550, 'X', 20]].find(t => e <= t[0]) || ['X', 20];
+    const getCirFactor = (e) => e <= 20 ? ['Std', 0] : e <= 35 ? ['I', 1] : e <= 60 ? ['II', 2] : e <= 75 ? ['III', 3] : ['IV', 4];
+
+    const [lifeClass, lifeFactor] = getLifeFactor(emr);
+    const [cirClass, cirFactor] = getCirFactor(emr);
+
+    const lifeLoading = 0.25 * lifeFactor;
+    const cirLoading = 0.30 * cirFactor;
+
+    const baseCover = fields.base_cover || 0;
+    const cirCover = fields.cir_cover || 0;
+    const accCover = fields.accident_cover || 0;
+    const occExtra = fields.occupation_extra || 0;
+
+    const calc = (coverLakhs, baseRate, loading, occ = 0) => {
+        if (!baseRate || !coverLakhs) return 0;
+        const loaded = coverLakhs * 100 * baseRate * (1 + loading);
+        return Math.round(loaded + (coverLakhs * 100 * occ));
+    };
+
+    const lifePremium = calc(baseCover, lifeRate, lifeLoading, occExtra);
+    const cirPremium = calc(cirCover, cirRate, cirLoading);
+    const accPremium = calc(accCover, accRate, 0);
+
+    const income = fields.yearly_income || 0;
+    const maxMult = [[35, 25], [45, 20], [50, 15], [55, 15], [200, 10]].find(t => age <= t[0])[1];
+    const maxCover = income * maxMult / 100;
+    const coverWarning = (income && baseCover > maxCover) ? `Base cover ${baseCover}L exceeds max allowed ${maxCover.toFixed(1)}L for age ${age} (${maxMult}x income)` : null;
+
+    return {
+        age, life_class: lifeClass, life_factor: lifeFactor, cir_class: cirClass, cir_factor: cirFactor,
+        life_premium_rs: lifePremium, cir_premium_rs: cirPremium, accident_premium_rs: accPremium,
+        total_premium_rs: lifePremium + cirPremium + accPremium, cover_warning: coverWarning
+    };
+}
+
+// ==========================================
+// SCAN EMR ROUTE — Proxies to Python Flask (EasyOCR)
+// ==========================================
+const FLASK_URL = process.env.FLASK_SCANNER_URL || 'http://127.0.0.1:5000';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.post('/api/scan', authenticateToken, upload.single('document'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No document file provided' });
+        console.log(`📷 Forwarding to Flask EasyOCR (${FLASK_URL}): ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
 
-        console.log(`📷 EMR Scanner: Processing ${req.file.originalname} (${Math.round(req.file.size/1024)}KB)`);
-
-        // Step 1: OCR via OCR.space API — fast, mobile-friendly, no memory overhead
-        const rawOcrText = await runOCRSpace(req.file.buffer, req.file.originalname, req.file.mimetype);
-
-        if (!rawOcrText.trim()) {
-            return res.status(400).json({ error: 'No text detected. Please use a clearer, well-lit image.' });
-        }
-        console.log(`📝 OCR.space complete (${rawOcrText.length} chars). Parsing with Groq...`);
-
-        // Step 2: Groq (free) parses OCR text into structured JSON
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                max_tokens: 1024,
-                messages: [{
-                    role: 'user',
-                    content: `You are an expert insurance proposal form data extractor. Extract fields from this OCR text and return ONLY valid JSON matching the exact schema below. No markdown, no explanation, no code block.
-
-Schema:
-{
-  "basic_details": {
-    "name": "", "gender": "", "date_of_birth": "", "profession": "",
-    "yearly_income": "", "base_cover_required": "", "cir_cover_required": "",
-    "accident_cover_required": "", "height_cm": null, "weight_kg": null,
-    "place_of_residence": "", "source_of_income": ""
-  },
-  "family_history": { "parent_status": "" },
-  "health_conditions": {
-    "thyroid": 0, "asthma": 0, "hyper_tension": 0, "diabetes_mellitus": 0, "gut_disorder": 0
-  },
-  "personal_habits": { "smoking": "", "alcoholic_drinks": "", "tobacco": "" },
-  "occupation_risk": ""
-}
-
-Rules:
-- Use null for blank/unreadable fields
-- Health conditions: 0=none, 1=mild, 2=moderate, 3=severe
-- Personal habits: None / Occasionally / Moderate / Regular
-- If unclear, use "unclear"
-
-OCR Text:
-${rawOcrText.substring(0, 5000)}`
-                }]
-            })
+        const form = new FormData();
+        form.append('image', req.file.buffer, {
+            filename: req.file.originalname,
+            contentType: req.file.mimetype
         });
-        const groqData = await groqRes.json();
-        if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq parsing failed');
 
-        const rawReply = groqData.choices[0].message.content.trim();
-        const jsonMatch = rawReply.replace(/```json\n?/g, '').replace(/```\n?/g, '').match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('Could not parse structured data. Please try a clearer image.');
+        let flaskRes;
+        try {
+            flaskRes = await fetch(`${FLASK_URL}/scan`, {
+                method: 'POST',
+                body: form,
+                headers: form.getHeaders(),
+                signal: AbortSignal.timeout(120000)
+            });
+        } catch (connErr) {
+            return res.status(503).json({
+                error: 'Python OCR server is not reachable. Please ensure the Flask service is running.'
+            });
+        }
 
-        const extractedData = JSON.parse(jsonMatch[0]);
-        console.log('✅ EMR scan complete via Groq');
-        res.json({ success: true, data: extractedData });
+        const flaskData = await flaskRes.json();
+        if (!flaskRes.ok || !flaskData.success) {
+            throw new Error(flaskData.error || 'Python OCR pipeline failed');
+        }
+
+        console.log(`✅ Flask OCR complete. EMR: ${flaskData.emr_score}, Total: ₹${flaskData.premium?.total_premium_rs}`);
+        res.json(flaskData);
 
     } catch (error) {
-        console.error('❌ EMR scan error:', error.message);
+        console.error('❌ Flask scan error:', error.message);
         res.status(500).json({ error: error.message || 'Failed to process document' });
     }
 });
@@ -891,41 +1056,17 @@ app.post('/api/vision-scan', authenticateToken, async (req, res) => {
             if (!rawOcrText.trim()) {
                 return res.json({ rawText: '', structured: null, message: 'No text detected. Please use a clearer image.' });
             }
-            console.log(`📝 OCR.space extracted ${rawOcrText.length} chars, parsing with Groq...`);
+            console.log(`📝 Local Tesseract extracted ${rawOcrText.length} chars, parsing natively...`);
 
-            // Step 2: Groq (free) parses OCR text into structured JSON
-            const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.1-8b-instant',
-                    max_tokens: 1024,
-                    messages: [{
-                        role: 'user',
-                        content: `You are an expert insurance OCR data extractor. Extract fields from this OCR text and return ONLY raw JSON, no markdown, no explanation. Fields: name, gender, place_of_residence, date_of_birth, profession, height_cm (number or null), weight_kg (number or null), yearly_income (number or null), source_of_income, base_cover_required (number or null), cir_cover_required (number or null), accident_cover_required (number or null), parent_status ("both_above_65"/"one_above_65"/"both_below_65"/"alive_healthy"/null), thyroid (0-3), asthma (0-3), hypertension (0-3), diabetes_mellitus (0-3), gut_disorder (0-3), smoking (0-3), alcoholic_drinks (0-3), tobacco (0-3), occupation_risk (normal/athlete/pilot/driver/merchant_navy/oil_gas).\n\nIf unclear, use null for numbers, "unclear" for strings, 0 for conditions.\n\nOCR Text:\n${rawOcrText.substring(0, 4000)}`
-                    }]
-                })
+            // Step 2: Parse OCR natively without Groq or LLM APIs
+            const structured = parseFields(rawOcrText);
+
+            console.log(`✅ Native Vision parse complete`);
+            res.json({ 
+                rawText: rawOcrText, 
+                structured: structured, 
+                message: 'Success' 
             });
-            const groqData = await groqRes.json();
-            if (!groqRes.ok) throw new Error(groqData.error?.message || 'Groq parsing failed');
-
-            let jsonStr = groqData.choices[0].message.content.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            let structured = null;
-            const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try { structured = JSON.parse(jsonMatch[0]); }
-                catch (e) { console.warn('⚠️ JSON parse failed:', e.message); }
-            }
-
-            if (!structured) {
-                return res.json({ rawText: rawOcrText, structured: null, message: 'Could not detect structured data. Please try a clearer image.' });
-            }
-
-            console.log(`✅ Just AI Scanner complete.`);
-            res.json({ rawText: rawOcrText, structured, ocrEngine: 'tesseract-groq' });
 
         } catch (error) {
             console.error('💥 Just AI Scanner failed:', error.message);
@@ -1040,113 +1181,77 @@ app.get('/api/diag', (req, res) => {
 });
 
 // ==========================================
-// GROQ AI ENDPOINTS
+// 🧠 NATIVE AI EXPLAIN & RISK PROFILE
 // ==========================================
 
-async function callGroq(messages, temperature = 0.7) {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages,
-            temperature,
-            max_tokens: 1024,
-        }),
-    });
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || 'Groq API error');
-    }
-    const data = await res.json();
-    return data.choices[0].message.content;
-}
-
-// POST /api/explain — Explain premium in simple or detailed mode
+// POST /api/explain — Explain premium in simple or detailed mode (Native JS)
 app.post('/api/explain', authenticateToken, async (req, res) => {
     try {
-        const { user, calc, mode } = req.body; // mode: 'simple' | 'detailed'
+        const { user, calc, mode } = req.body;
         const isSimple = mode !== 'detailed';
 
-        const systemPrompt = isSimple
-            ? `You are a friendly insurance advisor explaining a premium calculation to a teenager. Use very simple words, no jargon. Use emojis. Max 120 words.`
-            : `You are a senior insurance actuary explaining a premium calculation precisely. Include percentages and technical terms. Max 200 words.`;
+        const topFactors = [];
+        if (calc.breakdown?.lifestyle > 0 || calc.breakdown?.habitCombo > 0) topFactors.push("lifestyle choices");
+        if (calc.breakdown?.health > 0 || calc.breakdown?.comorbidity > 0) topFactors.push("health conditions");
+        if (calc.breakdown?.bmi > 0) topFactors.push("BMI");
+        if (calc.breakdown?.family > 0) topFactors.push("family history");
+        if (topFactors.length === 0) topFactors.push("your healthy base profile");
 
-        const userMsg = `
-User Profile:
-- Age: ${user.age}, Gender: ${user.gender || 'unspecified'}
-- BMI: ${user.bmi || 'not provided'}, Smoking: ${user.smoking > 0 ? 'Yes (level '+user.smoking+'/3)' : 'No'}
-- Health Conditions: ${JSON.stringify(user.diseases || {})}
-- Family History: ${user.parentStatus || 'unknown'}
+        const factorStr = topFactors.slice(0, 2).join(' and ');
 
-Calculation Result:
-- EMR Score: ${calc.emr}
-- Life Class: ${calc.lifeClass} (Factor ×${calc.lifeFactor})
-- Total Annual Premium: ₹${calc.total?.toLocaleString('en-IN')}
-- EMR Breakdown: BMI +${calc.breakdown?.bmi??0}, Family ${calc.breakdown?.family??0}, Health +${calc.breakdown?.health??0}, Lifestyle +${calc.breakdown?.lifestyle??0}
-
-Explain in ${isSimple ? 'simple friendly language (Explain Like I\'m 10)' : 'detailed technical language'} why this premium was calculated. End with: "Your premium is mainly driven by [top 2 factors]."
-`;
-
-        const explanation = await callGroq([
-            { role: 'system', content: systemPrompt },
-            { role: 'user',   content: userMsg },
-        ]);
+        let explanation = "";
+        if (isSimple) {
+            explanation = `Hey there! 🌟 We looked at your details like age (${user.age}) and health to figure out your insurance premium of ₹${calc.total?.toLocaleString('en-IN')}.\n\nBecause of some things like your ${factorStr}, we had to add a little extra (${calc.emr} points) to make sure you're fully covered. Keep staying healthy! 💪 Your premium is mainly driven by ${factorStr}.`;
+        } else {
+            explanation = `Actuarial Calculation Summary:\n\nBased on the applicant's profile (Age: ${user.age}), a base premium was established. However, an Extra Mortality Rating (EMR) score of ${calc.emr} was assigned, placing the applicant in Life Class ${calc.lifeClass} (Factor ×${calc.lifeFactor}).\n\nThis loading is directly correlated to algorithmic risk assessments of the applicant's ${factorStr}. The resulting total annual premium is therefore calibrated to ₹${calc.total?.toLocaleString('en-IN')}.\n\nYour premium is mainly driven by ${factorStr}.`;
+        }
 
         res.json({ success: true, explanation });
     } catch (error) {
-        console.error('Groq explain error:', error.message);
-        res.status(500).json({ error: 'AI explanation failed: ' + error.message });
+        console.error('Explain error:', error.message);
+        res.status(500).json({ error: 'Explanation failed: ' + error.message });
     }
 });
 
-// POST /api/risk-profile — Generate AI risk profile + tips + roadmap
+// POST /api/risk-profile — Generate AI risk profile + tips + roadmap (Native JS)
 app.post('/api/risk-profile', authenticateToken, async (req, res) => {
     try {
         const { user, calc } = req.body;
+        
+        let riskLevel = "Low";
+        let riskPercentage = 15;
+        if (calc.emr > 150) { riskLevel = "Very High"; riskPercentage = 85; }
+        else if (calc.emr > 75) { riskLevel = "High"; riskPercentage = 60; }
+        else if (calc.emr > 20) { riskLevel = "Medium"; riskPercentage = 35; }
 
-        const prompt = `
-You are an insurance risk analyst. Based on the user's profile, generate a JSON response with the following structure:
+        const tips = [];
+        const roadmap = [];
 
-USER PROFILE:
-- Age: ${user.age}, BMI: ${user.bmi}
-- Smoking: level ${user.smoking || 0}/3, Alcohol: level ${user.alcohol || 0}/3, Tobacco: level ${user.tobacco || 0}/3
-- Conditions: ${JSON.stringify(user.diseases || {})}
-- Family History: ${user.parentStatus}
-- EMR Score: ${calc.emr}, Life Class: ${calc.lifeClass}
-- Current Premium: ₹${calc.total?.toLocaleString('en-IN')}
+        if (user.bmi && (user.bmi > 25 || user.bmi < 18)) {
+            tips.push({ action: "Start a BMI management routine", saving: "₹" + Math.round(calc.total * 0.1).toLocaleString(), priority: "High" });
+            roadmap.push({ step: 1, title: "BMI Goal", description: "Reach a normal BMI range (18-25)", timeframe: "6 months", savings: "₹" + Math.round(calc.total * 0.1).toLocaleString() });
+        }
+        if (user.smoking > 0 || user.alcohol > 0 || user.tobacco > 0) {
+            tips.push({ action: "Reduce tobacco/alcohol consumption", saving: "₹" + Math.round(calc.total * 0.15).toLocaleString(), priority: "High" });
+            roadmap.push({ step: roadmap.length + 1, title: "Lifestyle Shift", description: "Gradually reduce smoking and alcohol intake", timeframe: "12 months", savings: "₹" + Math.round(calc.total * 0.15).toLocaleString() });
+        }
+        
+        if (tips.length === 0) {
+            tips.push({ action: "Maintain healthy habits", saving: "₹0", priority: "Low" });
+            roadmap.push({ step: 1, title: "Stay the course", description: "Continue your excellent habits", timeframe: "Ongoing", savings: "N/A" });
+        }
 
-Return ONLY valid JSON (no markdown, no extra text):
-{
-  "riskLevel": "Low" | "Medium" | "High" | "Very High",
-  "riskPercentage": <number 0-100>,
-  "summary": "<one sentence: lifestyle risk % and main driver>",
-  "tips": [
-    { "action": "<action to take>", "saving": "<estimated ₹ saving per year>", "priority": "High" | "Medium" | "Low" },
-    { "action": "...", "saving": "...", "priority": "..." },
-    { "action": "...", "saving": "...", "priority": "..." }
-  ],
-  "roadmap": [
-    { "step": 1, "title": "<short title>", "description": "<what to do>", "timeframe": "<e.g. 3 months>", "savings": "<₹ amount>" },
-    { "step": 2, "title": "...", "description": "...", "timeframe": "...", "savings": "..." },
-    { "step": 3, "title": "...", "description": "...", "timeframe": "...", "savings": "..." }
-  ]
-}
-`;
-
-        const raw = await callGroq([{ role: 'user', content: prompt }], 0.5);
-
-        // Extract JSON safely
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('No JSON in Groq response');
-        const profile = JSON.parse(jsonMatch[0]);
+        const profile = {
+            riskLevel,
+            riskPercentage,
+            summary: `Your risk profile is ${riskLevel} due to your current lifestyle and health markers.`,
+            tips,
+            roadmap
+        };
 
         res.json({ success: true, profile });
     } catch (error) {
-        console.error('Groq risk-profile error:', error.message);
+        console.error('Risk-profile error:', error.message);
         res.status(500).json({ error: 'Risk profile generation failed: ' + error.message });
     }
 });
