@@ -288,7 +288,11 @@ export default function ScanPage() {
             // Simulate OCR progress
             const progressInterval = setInterval(() => setScanProgress(p => p >= 80 ? 80 : p + 5), 600);
 
-            const res = await fetch(`${API}/vision-scan`, {
+            // Bypassing Vercel proxy to avoid 10-second timeout killing the slow OCR process.
+            // Targeting Render directly to use its 120s timeout allowance.
+            const RENDER_DIRECT = 'https://insurance-app-o6q3.onrender.com/api';
+
+            const res = await fetch(`${RENDER_DIRECT}/scan`, {
                 method: 'POST',
                 body: formData,
                 headers: token ? { Authorization: `Bearer ${token}` } : {},

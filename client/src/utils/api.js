@@ -204,7 +204,8 @@ export async function scanDocument(file) {
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes for API delay
 
     try {
-        const res = await fetch(API + '/scan', {
+        const RENDER_DIRECT = 'https://insurance-app-o6q3.onrender.com/api';
+        const res = await fetch(RENDER_DIRECT + '/scan', {
             method: 'POST',
             body: formData,
             headers: token ? { 'Authorization': `Bearer ${token}` } : {},
