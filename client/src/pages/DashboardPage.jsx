@@ -362,10 +362,9 @@ export default function DashboardPage() {
                 </div>
 
                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1 mb-6">Service Hub</h2>
-                <div className="grid grid-cols-4 gap-4 mb-10">
+                <div className="grid grid-cols-3 gap-4 mb-10">
                     {[
                         { icon: 'add_moderator', label: 'Proposal', to: '/proposal' },
-                        { icon: 'document_scanner', label: 'Scan', to: '/scan' },
                         { icon: 'admin_panel_settings', label: 'Admin', to: '/admin' },
                         { icon: 'psychology', label: 'Advice', to: '/dashboard' },
                     ].map((a, i) => (

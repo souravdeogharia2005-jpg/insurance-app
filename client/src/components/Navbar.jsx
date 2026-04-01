@@ -5,13 +5,12 @@ import { languages, currencies } from '../i18n/translations';
 import { useState } from 'react';
 import { changePassword, updateProfile } from '../utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Settings, LogOut, X, Moon, Sun, Globe, CreditCard, Key, ChevronRight, Home, LayoutDashboard, FileText, Scan, ShieldAlert, User } from 'lucide-react';
+import { Shield, Settings, LogOut, X, Moon, Sun, Globe, CreditCard, Key, ChevronRight, Home, LayoutDashboard, FileText, ShieldAlert, User } from 'lucide-react';
 
 const links = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/proposal', icon: FileText, label: 'New Proposal' },
-    { to: '/scan', icon: Scan, label: 'Scan' },
     { to: '/admin', icon: ShieldAlert, label: 'Admin' },
 ];
 
@@ -19,7 +18,6 @@ const mobileLinks = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/proposal', icon: FileText, label: 'Proposal' },
-    { to: '/scan', icon: Scan, label: 'Scan' },
     { to: '/admin', icon: ShieldAlert, label: 'Admin' },
 ];
 
