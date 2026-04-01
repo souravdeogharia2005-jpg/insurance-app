@@ -2,14 +2,12 @@ services:
   # ── Python InsureScan Engine (OCR + EMR + Premium) ────────────────────────
   - type: web
     name: aegisai-flask-scanner
-    runtime: python
+    runtime: docker
     rootDir: insurance_scanner
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 180 --workers 1
     plan: starter
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9      # Pinned — EasyOCR/PyTorch not yet compatible with 3.14
+      - key: PORT
+        value: 5050
 
   # ── Node.js Express Backend ──────────────────────────────────────────────
   - type: web
