@@ -288,7 +288,6 @@ def startup():
         print("[Startup] Model loaded ✓")
 
     # 2. Start file watcher ONLY if running locally (not on Render)
-    # Render sets PORT env variable, so if it's set we skip the watcher to save memory
     if not os.environ.get('PORT'):
         watcher_thread = threading.Thread(target=_start_file_watcher, daemon=True)
         watcher_thread.start()
@@ -299,15 +298,12 @@ def startup():
     print("""
 ============================================
  InsureScan Background Engine — READY
- Drop images into: scan_input/
- Results saved to: scan_output/
  API endpoint:     http://localhost:5050/api/scan
- Logs:             scanner.log
- Press Ctrl+C to stop
 ============================================""")
 
+# Run startup immediately when module is loaded (e.g. by gunicorn)
+startup()
 
 if __name__ == '__main__':
-    startup()
     port = int(os.environ.get('PORT', 5050))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
