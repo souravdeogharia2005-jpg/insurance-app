@@ -13,6 +13,7 @@ import json
 import logging
 import threading
 import time
+import gc
 from datetime import datetime
 from pathlib import Path
 
@@ -158,11 +159,12 @@ def api_scan():
         logger.error(f"[API] Pipeline error for {safe_name}: {exc}", exc_info=True)
         return jsonify({'error': str(exc)}), 500
     finally:
-        # Clean up temp upload
+        # Clean up temp upload and force memory release
         try:
             save_path.unlink(missing_ok=True)
         except Exception:
             pass
+        gc.collect()
 
 
 def _save_outputs(result, filename_stem):
@@ -276,16 +278,22 @@ def startup():
 
     # 1. Train or load model
     if not os.path.exists(MODEL_PATH):
-        print("\n[Startup] No trained model found — training now (50 epochs)...")
-        _ML_MODEL = train_model(n_samples=500, n_epochs=50, print_progress=True)
+        print("\n[Startup] No trained model found — training now (fast mode)...")
+        # Reduced to 250 samples to use less RAM on low-tier servers
+        _ML_MODEL = train_model(n_samples=250, n_epochs=50, print_progress=True)
+        gc.collect()
     else:
         print(f"[Startup] Loading model from {MODEL_PATH}")
         _ML_MODEL = load_model()
         print("[Startup] Model loaded ✓")
 
-    # 2. Start file watcher in background
-    watcher_thread = threading.Thread(target=_start_file_watcher, daemon=True)
-    watcher_thread.start()
+    # 2. Start file watcher ONLY if running locally (not on Render)
+    # Render sets PORT env variable, so if it's set we skip the watcher to save memory
+    if not os.environ.get('PORT'):
+        watcher_thread = threading.Thread(target=_start_file_watcher, daemon=True)
+        watcher_thread.start()
+    else:
+        print("[Startup] Cloud environment detected. File watcher disabled to save memory.")
 
     # 3. Print banner
     print("""

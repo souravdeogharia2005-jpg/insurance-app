@@ -21,5 +21,15 @@ COPY . .
 ENV PORT=5050
 EXPOSE $PORT
 
-# Run gunicorn (shell form to evaluate $PORT)
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --timeout 180 --workers 1
+# VITAL FOR MEMORY: Prevent numpy/scikit-learn from spawning too many baseline threads (kills memory)
+ENV OMP_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV VECLIB_MAXIMUM_THREADS=1
+ENV NUMEXPR_NUM_THREADS=1
+
+# Tell glibc memory allocator to minimize fragmentation
+ENV MALLOC_ARENA_MAX=2
+
+# Run gunicorn — strictly 1 worker, 2 threads to stay well under 400MB
+CMD gunicorn app:app --bind 0.0.0.0:$PORT --timeout 180 --workers 1 --threads 2 --worker-class gthread
