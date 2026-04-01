@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import ProposalPage from './pages/ProposalPage';
 import DashboardPage from './pages/DashboardPage';
 
+import ScanPage from './pages/ScanPage';
 import AdminPage from './pages/AdminPage';
 import PremiumBreakdownPage from './pages/PremiumBreakdownPage';
 import AdvisorPage from './pages/AdvisorPage';
@@ -157,7 +158,7 @@ function AppLayout() {
             <Route path="/login"     element={<AuthGuard><PageTransition><LoginPage /></PageTransition></AuthGuard>} />
             <Route path="/dashboard" element={<ProtectedRoute><PageTransition><DashboardPage /></PageTransition></ProtectedRoute>} />
             <Route path="/proposal"  element={<ProtectedRoute><PageTransition><ProposalPage /></PageTransition></ProtectedRoute>} />
-
+            <Route path="/scan"      element={<ProtectedRoute><PageTransition><ScanPage /></PageTransition></ProtectedRoute>} />
             <Route path="/admin"     element={<ProtectedRoute><PageTransition><AdminPage /></PageTransition></ProtectedRoute>} />
             <Route path="/breakdown" element={<ProtectedRoute><PageTransition><PremiumBreakdownPage /></PageTransition></ProtectedRoute>} />
             <Route path="/advisor"   element={<ProtectedRoute><AdvisorPage /></ProtectedRoute>} />
