@@ -1,12 +1,12 @@
 services:
-  # ── Python Flask OCR Scanner ──────────────────────────────────────────────
+  # ── Python InsureScan Engine (OCR + EMR + Premium) ────────────────────────
   - type: web
     name: aegisai-flask-scanner
     runtime: python
-    rootDir: flask_scanner
+    rootDir: insurance_scanner
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
-    plan: starter          # Free tier — upgrade to Standard for persistent model cache
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 180 --workers 1
+    plan: starter
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9      # Pinned — EasyOCR/PyTorch not yet compatible with 3.14

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, ScanLine, Loader, CheckCircle, AlertTriangle, FileText, Activity,
          TrendingUp, Shield, Download, RefreshCw, ServerCrash, Zap } from 'lucide-react';
 
-const SCANNER_URL = 'http://localhost:5050';
+// Priority: deployed Render scanner → local scanner → show setup instructions
+const SCANNER_URL = import.meta.env.VITE_SCANNER_URL || 'http://localhost:5050';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fc = (n) =>
